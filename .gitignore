@@ -1,0 +1,101 @@
+
+# ==============================
+# Dependencies
+# ==============================
+node_modules/
+**/node_modules/
+
+# ==============================
+# Python generated files
+# ==============================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ==============================
+# Python virtual environments
+# ==============================
+venv/
+.venv/
+env/
+**/venv/
+**/.venv/
+**/env/
+
+# ==============================
+# Environment variables and secrets
+# ==============================
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ==============================
+# Build files
+# ==============================
+dist/
+build/
+frontend/dist/
+frontend/.vite/
+
+# ==============================
+# Uploads and generated data
+# ==============================
+uploads/
+**/uploads/*
+!**/uploads/.gitkeep
+graphs/
+*.zip
+
+# ==============================
+# Logs
+# ==============================
+logs/
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ==============================
+# Testing and coverage
+# ==============================
+coverage/
+**/coverage/
+.nyc_output/
+htmlcov/
+coverage.xml
+
+# ==============================
+# Local databases and temporary files
+# ==============================
+*.sqlite
+*.sqlite3
+*.db
+*.pid
+*.tmp
+*.bak
+*.temp
+
+# ==============================
+# Operating system files
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# IDE files
+# ==============================
+.vscode/
+.idea/
+*.swp
+*.swo

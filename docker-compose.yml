@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # ── MongoDB Database ──────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: legacy_intel_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: legacy_intel
+    networks:
+      - legacy_net
+
+  # ── Python Multi-Agent Analysis Service ───────────────────────
+  analysis-service:
+    build:
+      context: ./analysis-service
+      dockerfile: Dockerfile
+    container_name: legacy_intel_analysis
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - MONGODB_URI=mongodb://mongodb:27017/legacy_intel
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost
+    depends_on:
+      - mongodb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - analysis_uploads:/app/uploads
+    networks:
+      - legacy_net
+
+  # ── Node.js Express API Gateway ───────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: legacy_intel_backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/legacy_intel
+      - JWT_SECRET=production_jwt_secret_grounded_rav_2026
+      - JWT_EXPIRES_IN=7d
+      - ANALYSIS_SERVICE_URL=http://analysis-service:8000
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost
+    depends_on:
+      - mongodb
+      - analysis-service
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - legacy_net
+
+  # ── React Vite Frontend ───────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: legacy_intel_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - legacy_net
+
+networks:
+  legacy_net:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  analysis_uploads:
+  backend_uploads:
