@@ -30,6 +30,8 @@ from core.uml_generator import (
     generate_deployment_svg,
     generate_package_diagram,
     generate_package_svg,
+    generate_collaboration_diagram,
+    generate_collaboration_svg,
     generate_all_uml_diagrams,
 )
 
@@ -132,6 +134,17 @@ def test_generate_class_diagram(sample_parsed_classes):
     assert "User" in cd
     assert "+getUser(id) User" in cd or "+getUser(id)" in cd
 
+    svg = generate_class_svg(sample_parsed_classes, project_name="OnlineStore")
+    assert "<svg" in svg
+    assert "class-relations-legend" in svg
+    assert "Inheritance" in svg
+    assert "Realization" in svg
+    assert "Composition" in svg
+    assert "Aggregation" in svg
+    assert "Directed" in svg
+    assert "Reflexive" in svg
+    assert "Multiplicity" in svg
+
 
 def test_generate_sequence_diagram(sample_parsed_classes):
     sd = generate_sequence_diagram(sample_parsed_classes)
@@ -185,6 +198,7 @@ def test_generate_all_uml_diagrams(sample_parsed_classes):
     assert "activity_diagram" in diagrams
     assert "class_diagram" in diagrams
     assert "sequence_diagram" in diagrams
+    assert "collaboration_diagram" in diagrams
     assert "component_diagram" in diagrams
     assert "deployment_diagram" in diagrams
     assert "package_diagram" in diagrams
@@ -345,5 +359,286 @@ def test_employee_management_domain_classification():
     assert "Pizza" not in uc_svg
     assert "Customer" not in uc_svg
     assert "Restaurant" not in uc_svg
+
+
+def test_unique_members_and_reference_inheritance_tree():
+    """Verify classes have distinctive, unique members and inheritance tree uses standard UML bus routing."""
+    animal_classes = [
+        ParsedClass(
+            class_name='Animal',
+            qualified_name='Animal',
+            file_path='Animal.java',
+            start_line=1, end_line=50,
+            fields=[
+                ParsedField(field_name='age', field_type='Int', modifiers=['public']),
+                ParsedField(field_name='gender', field_type='String', modifiers=['public']),
+            ],
+            methods=[
+                ParsedMethod(method_name='isMammal', return_type='boolean', parameters=[], modifiers=['public'], qualified_name='Animal.isMammal', file_path='Animal.java', start_line=10, end_line=15),
+                ParsedMethod(method_name='mate', return_type='void', parameters=[], modifiers=['public'], qualified_name='Animal.mate', file_path='Animal.java', start_line=16, end_line=20),
+            ]
+        ),
+        ParsedClass(
+            class_name='Duck',
+            qualified_name='Duck',
+            file_path='Duck.java',
+            start_line=1, end_line=50,
+            extends='Animal',
+            fields=[
+                ParsedField(field_name='beakColr', field_type='String', modifiers=['public']),
+            ],
+            methods=[
+                ParsedMethod(method_name='swim', return_type='void', parameters=[], modifiers=['public'], qualified_name='Duck.swim', file_path='Duck.java', start_line=10, end_line=15),
+            ]
+        ),
+        ParsedClass(
+            class_name='Fish',
+            qualified_name='Fish',
+            file_path='Fish.java',
+            start_line=1, end_line=50,
+            extends='Animal',
+            fields=[
+                ParsedField(field_name='sizeInFt', field_type='Int', modifiers=['private']),
+                ParsedField(field_name='canEat', field_type='Boolean', modifiers=['private']),
+            ],
+            methods=[
+                ParsedMethod(method_name='Swim', return_type='void', parameters=[], modifiers=['private'], qualified_name='Fish.Swim', file_path='Fish.java', start_line=10, end_line=15),
+            ]
+        ),
+        ParsedClass(
+            class_name='Zebra',
+            qualified_name='Zebra',
+            file_path='Zebra.java',
+            start_line=1, end_line=50,
+            extends='Animal',
+            fields=[
+                ParsedField(field_name='is_wild', field_type='Boolean', modifiers=['public']),
+            ],
+            methods=[
+                ParsedMethod(method_name='run', return_type='void', parameters=[], modifiers=['public'], qualified_name='Zebra.run', file_path='Zebra.java', start_line=10, end_line=15),
+            ]
+        )
+    ]
+
+    svg = generate_class_svg(animal_classes, "Animal Kingdom")
+    assert "<svg" in svg
+    assert "Animal" in svg
+    assert "Duck" in svg
+    assert "Fish" in svg
+    assert "Zebra" in svg
+    assert "Inheritance Tree Connector" in svg
+    assert "#d5e8d4" in svg
+
+
+def test_unique_members_emotion_platform():
+    """Verify Emotion Platform classes have unique, tailored members and no duplicate generic methods."""
+    emotion_classes = [
+        ParsedClass(
+            class_name='Main',
+            qualified_name='main.Main',
+            file_path='main.py',
+            start_line=1, end_line=100,
+            annotations=['Controller'],
+            fields=[
+                ParsedField(field_name='app', field_type='Any', modifiers=['private']),
+            ],
+            methods=[
+                ParsedMethod(method_name='preprocess_image', return_type='Any', parameters=[], modifiers=['private'], qualified_name='Main.preprocess_image', file_path='main.py', start_line=31, end_line=40),
+            ]
+        ),
+        ParsedClass(
+            class_name='Emotion',
+            qualified_name='models.Emotion',
+            file_path='models/emotion.py',
+            start_line=1, end_line=50,
+            fields=[],
+            methods=[]
+        ),
+        ParsedClass(
+            class_name='Session',
+            qualified_name='models.Session',
+            file_path='models/session.py',
+            start_line=1, end_line=50,
+            fields=[],
+            methods=[]
+        ),
+        ParsedClass(
+            class_name='Course',
+            qualified_name='models.Course',
+            file_path='models/course.py',
+            start_line=1, end_line=50,
+            fields=[],
+            methods=[]
+        )
+    ]
+
+    svg = generate_class_svg(emotion_classes, "Emotion Platform")
+    assert "<svg" in svg
+    # Check that each class received unique domain attributes and methods
+    assert "getSyllabus" in svg or "enrollStudent" in svg
+    assert "startSession" in svg or "recordEmotion" in svg
+    assert "detectFromFrame" in svg or "getDominantMood" in svg
+    # Ensure neither Course nor Session has generic identical fallback "+execute()"
+    assert svg.count("+execute()") == 0
+
+
+def test_class_box_overflow_protection_and_deduplication():
+    from core.uml_generator import generate_class_svg
+    from core.schemas import ParsedClass, ParsedMethod, ParsedField
+
+    ats_classes = [
+        ParsedClass(
+            class_name="App",
+            qualified_name="App",
+            file_path="App.js",
+            start_line=1, end_line=50,
+            fields=[
+                ParsedField(field_name="defaultOptions", field_type="String"),
+                ParsedField(field_name="success", field_type="String"),
+                ParsedField(field_name="error", field_type="String"),
+            ],
+            methods=[
+                ParsedMethod(method_name="RecruiterRoute", return_type="Promise<any>", parameters=[{"name": "req", "type": "Request"}, {"name": "res", "type": "Response"}], qualified_name="App.RecruiterRoute", file_path="App.js", start_line=5, end_line=10),
+                ParsedMethod(method_name="ApplicantRoute", return_type="Promise<any>", parameters=[{"name": "req", "type": "Request"}, {"name": "res", "type": "Response"}], qualified_name="App.ApplicantRoute", file_path="App.js", start_line=12, end_line=18),
+                ParsedMethod(method_name="ProtectedRoute", return_type="Promise<any>", parameters=[{"name": "req", "type": "Request"}, {"name": "res", "type": "Response"}], qualified_name="App.ProtectedRoute", file_path="App.js", start_line=20, end_line=28),
+            ]
+        ),
+        ParsedClass(
+            class_name="JobController",
+            qualified_name="controllers.JobController",
+            file_path="JobController.js",
+            start_line=1, end_line=50,
+            fields=[
+                ParsedField(field_name="pagination", field_type="Number"),
+                ParsedField(field_name="pagination", field_type="Number"),  # duplicate
+                ParsedField(field_name="job", field_type="String"),
+            ],
+            methods=[
+                ParsedMethod(method_name="getJobs", return_type="Promise<any>", parameters=[{"name": "req", "type": "Request"}, {"name": "res", "type": "Response"}], qualified_name="JobController.getJobs", file_path="JobController.js", start_line=5, end_line=10),
+                ParsedMethod(method_name="getJob", return_type="Promise<any>", parameters=[{"name": "req", "type": "Request"}, {"name": "res", "type": "Response"}], qualified_name="JobController.getJob", file_path="JobController.js", start_line=12, end_line=18),
+                ParsedMethod(method_name="createJob", return_type="Promise<any>", parameters=[{"name": "req", "type": "Request"}, {"name": "res", "type": "Response"}], qualified_name="JobController.createJob", file_path="JobController.js", start_line=20, end_line=28),
+            ]
+        )
+    ]
+
+    svg = generate_class_svg(ats_classes, "Ai Ats Software Main")
+    assert "<svg" in svg
+    assert "JobController" in svg
+    assert "App" in svg
+    # Duplicate field should be deduplicated
+    assert svg.count("-pagination: Number") == 1
+    # Boilerplate Promise<any> / Promise_any_ should be cleanly sanitized
+    assert "Promise_any_" not in svg
+    assert "Promise" in svg
+    # Verbose req: Request, res: Response should be simplified
+    assert "req: Request, res: Response" not in svg
+    # SVG clipPath should be present to guarantee no text overflow out of boxes
+    assert "<clipPath id=" in svg
+
+
+def test_generate_collaboration_diagram(sample_parsed_classes):
+    mmd = generate_collaboration_diagram(sample_parsed_classes, "Job Recruitment System")
+    assert "flowchart TD" in mmd
+    assert "CollabGraph" in mmd
+    assert "Applicant" in mmd
+    assert "Database" in mmd
+    assert "Recruiter" in mmd
+    assert "1 : Ask For Register" in mmd
+    assert "10 : Joining" in mmd
+    assert "[return]" in mmd
+    assert "[self]" in mmd
+
+
+def test_generate_collaboration_svg_and_notations():
+    ats_classes = [
+        ParsedClass(
+            class_name="App",
+            qualified_name="App",
+            file_path="App.js",
+            start_line=1, end_line=50,
+            methods=[
+                ParsedMethod(method_name="RecruiterRoute", return_type="Promise<any>", parameters=[], qualified_name="App.RecruiterRoute", file_path="App.js", start_line=5, end_line=10),
+                ParsedMethod(method_name="ApplicantRoute", return_type="Promise<any>", parameters=[], qualified_name="App.ApplicantRoute", file_path="App.js", start_line=12, end_line=18),
+            ]
+        )
+    ]
+
+    svg = generate_collaboration_svg(ats_classes, "Ai Ats Software Main")
+    assert "<svg" in svg
+    assert "collaboration" in svg
+
+    # 1. Objects / Participants
+    assert "&lt;&lt;participant&gt;&gt;" in svg
+    assert "Recruiter" in svg
+
+    # 2. Multiple Objects (Stacked Rectangles)
+    assert "&lt;&lt;multi-object&gt;&gt;" in svg
+    assert "Database" in svg
+    assert "Multi-Object (Stacked)" in svg
+
+    # 3. Actors
+    assert "&lt;&lt;actor&gt;&gt;" in svg
+    assert "Applicant" in svg
+
+    # 4. Messages (Numbered with directional flows matching reference)
+    assert "1 : Ask For Register" in svg
+    assert "2 : Login" in svg
+    assert "3 : Verify Login" in svg
+    assert "4 : Check the jobs" in svg
+    assert "5 : Ask to send interview Details" in svg
+    assert "6 : Detail Sentin" in svg
+    assert "7 : Attend the Test" in svg
+    assert "8 : Selects the Talented applicants" in svg
+    assert "9 : sends the letter" in svg
+    assert "10 : Joining" in svg
+
+    # 5. Self Message (Loop arrow notation)
+    assert "3.1 : [self]" in svg
+    assert "Index Audit" in svg
+
+    # 6. Links (Solid straight lines)
+    assert '<line x1=' in svg
+
+    # 7. Return Messages (Dashed line with open arrowhead)
+    assert "&lt;-- 4.1 : [return]" in svg
+    assert "stroke-dasharray=" in svg
+
+    # Bottom Title matching reference model
+    assert "Job Recruitment system" in svg
+
+    # Notations Legend Bar
+    assert "collaboration-legend" in svg
+    assert "Object / Actor" in svg
+    assert "Return Message (dashed)" in svg
+    assert "Sequence" in svg
+
+
+def test_collaboration_unique_per_domain():
+    # 1. Emotion Learning project
+    emotion_classes = [
+        ParsedClass(class_name="EmotionDetector", qualified_name="EmotionDetector", file_path="EmotionDetector.py", start_line=1, end_line=50),
+        ParsedClass(class_name="SessionModel", qualified_name="SessionModel", file_path="SessionModel.py", start_line=1, end_line=50)
+    ]
+    emotion_svg = generate_collaboration_svg(emotion_classes, "Emotion Learning Platform")
+    assert "Student" in emotion_svg
+    assert "EmotionSessionDB" in emotion_svg
+    assert "Instructor" in emotion_svg
+    assert "Emotion Learning Platform" in emotion_svg
+
+    # 2. E-Commerce project
+    shop_classes = [
+        ParsedClass(class_name="ProductController", qualified_name="ProductController", file_path="ProductController.js", start_line=1, end_line=50),
+        ParsedClass(class_name="CartService", qualified_name="CartService", file_path="CartService.js", start_line=1, end_line=50)
+    ]
+    shop_svg = generate_collaboration_svg(shop_classes, "Online Shopping Store")
+    assert "Customer" in shop_svg
+    assert "ProductCatalogDB" in shop_svg
+    assert "StoreAdmin" in shop_svg
+    assert "E-Commerce Platform" in shop_svg
+
+    # Ensure uniqueness across domains
+    assert emotion_svg != shop_svg
+
+
 
 

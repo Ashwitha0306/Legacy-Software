@@ -38,6 +38,8 @@ from core.uml_generator import (
     generate_use_case_svg as _gen_use_case_svg,
     generate_activity_diagram as _gen_activity_diagram,
     generate_activity_svg as _gen_activity_svg,
+    generate_collaboration_diagram as _gen_collaboration_diagram,
+    generate_collaboration_svg as _gen_collaboration_svg,
     generate_deployment_diagram as _gen_deployment_diagram,
     generate_deployment_svg as _gen_deployment_svg,
     generate_package_diagram as _gen_package_diagram,
@@ -227,7 +229,7 @@ async def run(project_id: str, input_data: Dict[str, Any]) -> AgentEnvelope:
     # Normalize parsed classes from either classes list or nodes list
     parsed_classes = _normalize_classes(raw_classes) if raw_classes else _normalize_classes(nodes)
 
-    # 1. Generate 7 standard UML Diagrams (source & SVG)
+    # 1. Generate standard UML Diagrams (source & SVG)
     mermaid_usecase = _gen_use_case_diagram(parsed_classes, project_name=project_name)
     svg_usecase = _gen_use_case_svg(parsed_classes, project_name=project_name)
 
@@ -236,6 +238,9 @@ async def run(project_id: str, input_data: Dict[str, Any]) -> AgentEnvelope:
 
     mermaid_seq = _gen_sequence_diagram(parsed_classes, project_name=project_name)
     svg_seq = _gen_sequence_svg(parsed_classes, project_name=project_name)
+
+    mermaid_collab = _gen_collaboration_diagram(parsed_classes, project_name=project_name)
+    svg_collab = _gen_collaboration_svg(parsed_classes, project_name=project_name)
 
     mermaid_class = _gen_class_diagram(parsed_classes, project_name=project_name)
     svg_class = _gen_class_svg(parsed_classes, project_name=project_name)
@@ -263,6 +268,8 @@ async def run(project_id: str, input_data: Dict[str, Any]) -> AgentEnvelope:
         ("activity_diagram.svg", svg_activity),
         ("sequence_diagram.mmd", mermaid_seq),
         ("sequence_diagram.svg", svg_seq),
+        ("collaboration_diagram.mmd", mermaid_collab),
+        ("collaboration_diagram.svg", svg_collab),
         ("class_diagram.mmd", mermaid_class),
         ("class_diagram.svg", svg_class),
         ("component_diagram.mmd", mermaid_comp),
@@ -302,6 +309,13 @@ async def run(project_id: str, input_data: Dict[str, Any]) -> AgentEnvelope:
             "sourceFile": "sequence_diagram.mmd",
             "renderedFile": "sequence_diagram.svg",
             "downloadUrl": f"/uploads/projects/{project_id}/diagrams/sequence_diagram.svg",
+        },
+        {
+            "type": "collaboration_diagram",
+            "title": "UML Collaboration Diagram",
+            "sourceFile": "collaboration_diagram.mmd",
+            "renderedFile": "collaboration_diagram.svg",
+            "downloadUrl": f"/uploads/projects/{project_id}/diagrams/collaboration_diagram.svg",
         },
         {
             "type": "class_diagram",
@@ -356,6 +370,11 @@ async def run(project_id: str, input_data: Dict[str, Any]) -> AgentEnvelope:
             "mermaid": mermaid_seq,
             "svg": svg_seq,
         },
+        "collaboration_diagram": {
+            "title": "UML Collaboration Diagram",
+            "mermaid": mermaid_collab,
+            "svg": svg_collab,
+        },
         "class_diagram": {
             "title": "UML Class Diagram",
             "mermaid": mermaid_class,
@@ -396,6 +415,7 @@ async def run(project_id: str, input_data: Dict[str, Any]) -> AgentEnvelope:
             "activity_diagram": mermaid_activity,
             "class_diagram": mermaid_class,
             "sequence_diagram": mermaid_seq,
+            "collaboration_diagram": mermaid_collab,
             "component_diagram": mermaid_comp,
             "deployment_diagram": mermaid_deploy,
             "package_diagram": mermaid_pkg,

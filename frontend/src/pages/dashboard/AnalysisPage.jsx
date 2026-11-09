@@ -15,6 +15,8 @@ import clsx from 'clsx'
 
 import { ClassDiagramView, ERDiagramView, BlastRadiusGraphView } from '@/components/architecture/Diagrams'
 import UMLDiagramsView from '@/components/diagrams/UMLDiagramsView'
+import EvaluationVisualizations from '@/components/evaluation/EvaluationVisualizations'
+import ThemeToggle from '@/components/ui/ThemeToggle'
 
 const STATUS_BADGE = {
   Verified:           'badge-verified',
@@ -121,7 +123,12 @@ export default function AnalysisPage() {
     setIsTriggering(true)
     try {
       await analysisApi.triggerRun(projectId, { ablationMode })
-      toast.success(`Pipeline triggered in ${ablationMode} mode!`)
+      const modeLabels = {
+        full_rav: 'Full RAV (Proposed)',
+        rag_only: 'RAG-Only Baseline',
+        plain_llm: 'Plain LLM Baseline',
+      }
+      toast.success(`Pipeline triggered in ${modeLabels[ablationMode] || ablationMode} configuration!`)
       await loadProjectData()
     } catch (err) {
       toast.error('Failed to trigger pipeline run')
@@ -383,6 +390,7 @@ export default function AnalysisPage() {
 
         {/* Pipeline Controls */}
         <div className="flex items-center gap-3">
+          <ThemeToggle variant="icon" />
           <select
             value={ablationMode}
             onChange={(e) => setAblationMode(e.target.value)}
@@ -484,7 +492,7 @@ export default function AnalysisPage() {
 
           { id: 'drift', label: 'Drift Detection', icon: GitCompare },
 
-          { id: 'evaluation', label: 'Evaluation & Ablation', icon: BarChart3 },
+          { id: 'evaluation', label: 'Evaluation & Benchmark', icon: BarChart3 },
           { id: 'pipeline', label: 'Multi-Agent Execution Log', icon: Activity },
         ].map(({ id, label, icon: Icon, count }) => (
           <button
@@ -1009,7 +1017,7 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      {/* TAB 6: EVALUATION & ABLATION STUDY */}
+      {/* TAB 6: EVALUATION & BENCHMARK */}
       {activeTab === 'evaluation' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1046,16 +1054,26 @@ export default function AnalysisPage() {
               <p className="text-xs text-slate-400 mt-1">Hallucination Rate</p>
             </div>
           </div>
+          
+          {/* Data Visualizations: Pie Chart, Bar Chart, Radar Profile, Hallucination Suppression */}
+          <EvaluationVisualizations
+            ablationRows={ablationRows}
+            verifiedStatements={verifiedStatements}
+            evalMetrics={evalMetrics}
+            parsingOutput={parsingOutput}
+            sskgOutput={sskgOutput}
+            projectName={project?.name || 'Codebase Project'}
+          />
 
           <div className="card p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="section-title text-base flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-amber-400" /> Ablation Study Comparative Results (Agent 11)
+                <BarChart3 className="w-4 h-4 text-amber-400" /> Multi-Agent Comparative Benchmark Results (Agent 11)
               </h3>
               <span className="badge-verified font-mono text-xs">Calculated from Real SSKG & Verification</span>
             </div>
             <p className="text-xs text-slate-400">
-              Formal comparative evaluation comparing the proposed Full Grounded RAV pipeline against baseline ablations for this codebase.
+              Formal comparative evaluation comparing the proposed Full Grounded RAV multi-agent pipeline against baseline configurations for this codebase.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -1110,39 +1128,110 @@ export default function AnalysisPage() {
       {/* TAB 7: MULTI-AGENT EXECUTION LOG */}
       {activeTab === 'pipeline' && (
         <div className="card p-6 space-y-4">
-          <h3 className="section-title text-base flex items-center gap-2">
-            <Activity className="w-4 h-4 text-cyan-400" /> Multi-Agent Pipeline Execution Log (Orchestrator)
-          </h3>
-          <p className="text-xs text-slate-400">
-            Real-time chronological trace of all 11 agents executed during this pipeline run.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="section-title text-base flex items-center gap-2">
+                <Activity className="w-4 h-4 text-cyan-400" /> Multi-Agent Pipeline Execution Log (Orchestrator)
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Real-time chronological trace of all 11 agents executed during this pipeline run.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-[11px]">
+              <span className="px-2.5 py-1 rounded-md bg-navy-950/80 border border-navy-800 text-slate-300 font-medium">
+                {(selectedRun?.executionLog || []).length} Events Logged
+              </span>
+            </div>
+          </div>
 
-          <div className="space-y-2 font-mono text-xs">
-            {(selectedRun?.executionLog || []).map((entry, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-lg bg-navy-950 border border-navy-800/80 flex items-start justify-between gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] text-slate-500">{entry.timestamp?.split('T')[1]?.slice(0, 8) || '00:00:00'}</span>
-                  <span className="badge-cyan font-bold">{entry.agent}</span>
-                  <span className={clsx(
-                    'font-semibold',
-                    entry.event === 'COMPLETED' ? 'text-emerald-400' :
-                    entry.event === 'STARTED' ? 'text-cyan-300' :
-                    entry.event === 'PIPELINE_COMPLETED' ? 'text-emerald-300 font-bold' :
-                    entry.event === 'SKIPPED' ? 'text-amber-400' : 'text-slate-300'
-                  )}>
-                    {entry.event}
-                  </span>
-                </div>
-                {entry.detail && (
-                  <span className="text-slate-500 text-[11px] truncate max-w-xs text-right">
-                    {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail)}
-                  </span>
-                )}
+          <div className="space-y-2.5 font-mono text-xs">
+            {(!selectedRun?.executionLog || selectedRun.executionLog.length === 0) ? (
+              <div className="p-8 text-center text-slate-400 text-xs rounded-xl bg-navy-950/60 border border-navy-800/80">
+                No execution trace records available for this run.
               </div>
-            ))}
+            ) : (
+              (selectedRun?.executionLog || []).map((entry, idx) => {
+                const ev = (entry.event || '').toUpperCase().trim()
+                const isStarted = ev === 'STARTED'
+                const isCompleted = ev === 'COMPLETED'
+                const isPipeStarted = ev === 'PIPELINE_STARTED' || ev === 'PIPELINE STARTED'
+                const isPipeCompleted = ev === 'PIPELINE_COMPLETED' || ev === 'PIPELINE COMPLETED'
+                const isSkipped = ev === 'SKIPPED'
+                const isFailed = ev.includes('FAIL') || ev.includes('ERROR')
+
+                // Badge styling for the status box:
+                // "started" -> blue
+                // "completed" -> light green
+                // "pipeline started" -> white
+                // "pipeline completed" -> green
+                const badgeClass = isPipeStarted
+                  ? 'bg-white text-slate-950 border-white font-black shadow-sm shadow-white/40'
+                  : isStarted
+                  ? 'bg-blue-600/30 border-blue-400 text-blue-100 font-bold shadow-sm shadow-blue-500/25'
+                  : isPipeCompleted
+                  ? 'bg-green-600/35 border-green-400 text-green-100 font-black shadow-sm shadow-green-500/30'
+                  : isCompleted
+                  ? 'bg-lime-500/25 border-lime-400 text-lime-100 font-bold shadow-sm shadow-lime-500/20'
+                  : isSkipped
+                  ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                  : isFailed
+                  ? 'bg-red-500/25 border-red-400 text-red-200 font-bold'
+                  : 'bg-slate-800 border-slate-600 text-slate-200 font-medium'
+
+                // Row border accent to make the entire entry box look neat, clear, and cohesive
+                const rowBorderClass = isPipeStarted
+                  ? 'border-l-4 border-l-white bg-slate-900/40 hover:bg-slate-900/70 border-navy-800/80'
+                  : isStarted
+                  ? 'border-l-4 border-l-blue-500 bg-blue-950/20 hover:bg-blue-950/30 border-navy-800/80'
+                  : isPipeCompleted
+                  ? 'border-l-4 border-l-green-500 bg-green-950/25 hover:bg-green-950/35 border-navy-800/80'
+                  : isCompleted
+                  ? 'border-l-4 border-l-lime-400 bg-lime-950/20 hover:bg-lime-950/30 border-navy-800/80'
+                  : isSkipped
+                  ? 'border-l-4 border-l-amber-500 border-navy-800/80 bg-navy-950'
+                  : isFailed
+                  ? 'border-l-4 border-l-red-500 border-navy-800/80 bg-red-950/10'
+                  : 'border-navy-800/80 bg-navy-950'
+
+                const displayEvent = entry.event?.replace(/_/g, ' ') || entry.event
+
+                return (
+                  <div
+                    key={idx}
+                    className={clsx(
+                      'p-3 rounded-lg border flex items-center justify-between gap-4 transition-all duration-150',
+                      rowBorderClass
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-[11px] font-mono text-slate-400 font-semibold px-2 py-0.5 rounded bg-navy-900/90 border border-navy-800/80 flex-shrink-0">
+                        {entry.timestamp?.split('T')[1]?.slice(0, 8) || '00:00:00'}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-md text-xs font-bold font-mono tracking-wide bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10 flex-shrink-0">
+                        {entry.agent}
+                      </span>
+                      <span
+                        className={clsx(
+                          'inline-flex items-center justify-center px-3 py-1 rounded-md text-[11px] uppercase tracking-wider border transition-colors flex-shrink-0',
+                          badgeClass
+                        )}
+                      >
+                        {displayEvent}
+                      </span>
+                    </div>
+
+                    {entry.detail && (
+                      <span
+                        className="text-slate-300 text-[11px] font-mono truncate max-w-sm md:max-w-md lg:max-w-lg text-right px-2.5 py-1 rounded bg-navy-900/80 border border-navy-800 hover:border-slate-600 transition-colors cursor-default"
+                        title={typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail, null, 2)}
+                      >
+                        {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail)}
+                      </span>
+                    )}
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       )}

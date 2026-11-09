@@ -8,14 +8,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Deep navy base (primary background)
+        // Deep navy base (dynamic CSS variables for Dark/Light mode)
         navy: {
-          950: '#060b18',
-          900: '#0a1628',
-          800: '#0f2040',
-          700: '#152b56',
-          600: '#1e3a6e',
-          500: '#2a4d8c',
+          950: 'rgb(var(--color-navy-950) / <alpha-value>)',
+          900: 'rgb(var(--color-navy-900) / <alpha-value>)',
+          800: 'rgb(var(--color-navy-800) / <alpha-value>)',
+          700: 'rgb(var(--color-navy-700) / <alpha-value>)',
+          600: 'rgb(var(--color-navy-600) / <alpha-value>)',
+          500: 'rgb(var(--color-navy-500) / <alpha-value>)',
         },
         // Cyan accent (primary interactive color)
         cyan: {

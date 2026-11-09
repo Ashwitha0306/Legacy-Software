@@ -3,6 +3,7 @@ import mermaid from 'mermaid'
 import { Copy, Download, ZoomIn, ZoomOut, RotateCcw, Check, X, Maximize2, Code2, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
+import { useThemeStore } from '@/store/themeStore'
 
 // ── Mermaid global theme ──────────────────────────────────────────────────────
 mermaid.initialize({
@@ -94,9 +95,19 @@ function patchMermaidCode(code) {
   }).join('\n')
 }
 
+// ── SVG XML sanitizer ───────────────────────────────────────────────────────
+function sanitizeSvgForXml(svgString) {
+  if (!svgString || typeof svgString !== 'string') return ''
+  return svgString
+    .replace(/&laquo;/g, '&#171;')
+    .replace(/&raquo;/g, '&#187;')
+    .replace(/<!--([\s\S]*?)-->/g, (_, inner) => '<!--' + inner.replace(/--/g, ' - ') + '-->')
+}
+
 // ── SVG → blob URL (always fits any container via CSS) ───────────────────────
 function svgToBlobUrl(svgString) {
-  const blob = new Blob([svgString], { type: 'image/svg+xml' })
+  const clean = sanitizeSvgForXml(svgString)
+  const blob = new Blob([clean], { type: 'image/svg+xml;charset=utf-8' })
   return URL.createObjectURL(blob)
 }
 
@@ -222,11 +233,21 @@ function Lightbox({ svgContent, title, accent, onClose }) {
                 src={imgUrl}
                 alt={title}
                 draggable={false}
+                onError={e => {
+                  e.currentTarget.style.display = 'none'
+                  const fallback = e.currentTarget.parentElement?.querySelector('.inline-lightbox-fallback')
+                  if (fallback) fallback.style.display = 'block'
+                }}
                 style={{
                   maxWidth: 'none',
                   filter: 'drop-shadow(0 8px 40px rgba(34,211,238,0.18))',
                   imageRendering: 'crisp-edges',
                 }}
+              />
+              <div
+                className="inline-lightbox-fallback"
+                style={{ display: 'none', maxWidth: 'none' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeSvgForXml(svgContent) }}
               />
             </div>
           )}
@@ -246,6 +267,9 @@ function Lightbox({ svgContent, title, accent, onClose }) {
 // Main MermaidViewer
 // ════════════════════════════════════════════════════════════════════════════
 export default function MermaidViewer({ chartCode, svgCode, title, description, diagramType = 'class', isDemo = false }) {
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
+
   const [svgContent, setSvgContent]   = useState('')
   const [imgUrl, setImgUrl]           = useState('')
   const [renderError, setRenderError] = useState(null)
@@ -328,24 +352,26 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
       )}
 
       {/* Card */}
-      <div className={clsx('flex flex-col rounded-2xl border border-white/8 overflow-hidden', accent.glow)}
-        style={{ background: 'linear-gradient(160deg, #0a1628 0%, #060d1f 100%)' }}>
+      <div className={clsx('flex flex-col rounded-2xl border overflow-hidden transition-colors', accent.glow, isDark ? 'border-white/8' : 'border-slate-200 bg-white shadow-card')}
+        style={isDark ? { background: 'linear-gradient(160deg, #0a1628 0%, #060d1f 100%)' } : { background: '#ffffff' }}>
 
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3
-                        px-5 py-3.5 border-b border-white/8 bg-navy-900/50 flex-shrink-0">
+        <div className={clsx(
+          'flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 border-b flex-shrink-0 transition-colors',
+          isDark ? 'border-white/8 bg-navy-900/50' : 'border-slate-200 bg-slate-50/90'
+        )}>
           <div className="flex items-center gap-3 min-w-0">
             <span className={clsx('flex-shrink-0 text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border', accent.pill)}>
               {accent.label}
             </span>
             <div className="min-w-0">
-              <p className="font-semibold text-white text-sm truncate">{title || 'UML Diagram'}</p>
+              <p className="font-semibold text-slate-900 dark:text-white text-sm truncate">{title || 'UML Diagram'}</p>
               {description && <p className="text-[11px] text-slate-500 truncate mt-0.5">{description}</p>}
             </div>
             {isDemo
-              ? <span className="flex-shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400">DEMO</span>
+              ? <span className="flex-shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-500">DEMO</span>
               : svgContent
-                ? <span className="flex-shrink-0 flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+                ? <span className="flex-shrink-0 flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-500">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />LIVE
                   </span>
                 : null}
@@ -354,23 +380,26 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => setShowCode(v => !v)}
               className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
-                showCode ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white')}>
+                showCode
+                  ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-600 dark:text-cyan-300'
+                  : isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900')}>
               <Code2 className="w-3.5 h-3.5" /> Source
             </button>
 
             <button onClick={copyCode}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-slate-400 hover:text-white text-xs font-medium transition-colors">
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+                isDark ? 'border-white/10 bg-white/5 text-slate-400 hover:text-white' : 'border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900')}>
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy'}
             </button>
 
             <button onClick={downloadSVG} disabled={!canOpen}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 text-xs font-medium transition-colors disabled:opacity-30">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 text-xs font-medium transition-colors disabled:opacity-30">
               <Download className="w-3.5 h-3.5" /> SVG
             </button>
 
             <button onClick={() => setLightbox(true)} disabled={!canOpen}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 text-xs font-semibold transition-colors disabled:opacity-30">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-300 hover:bg-violet-500/20 text-xs font-semibold transition-colors disabled:opacity-30">
               <Maximize2 className="w-3.5 h-3.5" /> Full View
             </button>
           </div>
@@ -384,7 +413,7 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
         )}
 
         {/* ── Diagram display ──────────────────────────────────────────────── */}
-        <div className="relative flex-1" style={{ minHeight: 500 }}>
+        <div className={clsx('relative flex-1', !isDark && 'bg-slate-50/50')} style={{ minHeight: 500 }}>
 
           {renderError === 'legacy' ? (
             /* Outdated data */
@@ -433,6 +462,11 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
                   src={imgUrl}
                   alt={title || 'UML Diagram'}
                   draggable={false}
+                  onError={e => {
+                    e.currentTarget.style.display = 'none'
+                    const fallback = e.currentTarget.parentElement?.querySelector('.inline-svg-fallback')
+                    if (fallback) fallback.style.display = 'flex'
+                  }}
                   className="w-full h-full transition-all duration-300 group-hover:scale-[1.01] group-hover:brightness-110"
                   style={{
                     objectFit: 'contain',
@@ -440,6 +474,11 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
                     filter: 'drop-shadow(0 4px 24px rgba(34,211,238,0.10))',
                     imageRendering: 'auto',
                   }}
+                />
+                <div
+                  className="inline-svg-fallback w-full h-full p-6 items-center justify-center overflow-auto pointer-events-none"
+                  style={{ display: 'none' }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvgForXml(svgContent) }}
                 />
 
                 {/* Hover expand hint */}

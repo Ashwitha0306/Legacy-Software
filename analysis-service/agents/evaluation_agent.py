@@ -2,7 +2,7 @@
 Evaluation Agent (Agent 11 in the REQUIRED AGENTS list)
 
 PURPOSE:
-  Compute formal evaluation metrics for research paper experiments and ablation study.
+  Compute formal evaluation metrics for research experiments and multi-agent pipeline benchmarks.
   Measures: Precision, Recall, F1, Hallucination Rate, Evidence Citation Accuracy,
   Verification Classification Accuracy, Architecture Reconstruction Accuracy,
   API Detection Accuracy, Software Knowledge Coverage, and estimated Time Saved.

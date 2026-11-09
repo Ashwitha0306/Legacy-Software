@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { projectsApi } from '@/api/projectsApi'
 import UploadModal from '@/components/projects/UploadModal'
+import ThemeToggle from '@/components/ui/ThemeToggle'
 import toast from 'react-hot-toast'
 
 const DEFAULT_AGENTS = [
@@ -22,7 +23,7 @@ const DEFAULT_AGENTS = [
   { id: 'Agent 8', name: 'Architecture & API Reconstruction' },
   { id: 'Agent 9', name: 'Grounded Verification Agent' },
   { id: 'Agent 10', name: 'Conversational Multi-Turn Agent' },
-  { id: 'Agent 11', name: 'Evaluation & Ablation Study Engine' },
+  { id: 'Agent 11', name: 'Evaluation & Multi-Agent Benchmark Engine' },
 ]
 
 export default function DashboardHome() {
@@ -148,6 +149,8 @@ export default function DashboardHome() {
         </div>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle variant="icon" />
+
           <button
             onClick={() => fetchDashboardData(true)}
             disabled={refreshing}

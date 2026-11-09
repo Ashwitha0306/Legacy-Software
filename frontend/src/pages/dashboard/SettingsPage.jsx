@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  User, FlaskConical, Database, Save, Trash2, Download, CheckCircle2, Sliders
+  User, FlaskConical, Database, Save, Trash2, Download, CheckCircle2, Sliders, Sun, Moon, Sparkles
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/store/themeStore'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
 
 export default function SettingsPage() {
   const { user } = useAuthStore()
+  const { theme, setTheme } = useThemeStore()
 
   // State for Default Ablation Mode
   const [defaultAblation, setDefaultAblation] = useState(() => localStorage.getItem('anchorai_ablation') || 'full_rav')
@@ -94,15 +96,15 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ── SECTION 2: PIPELINE BENCHMARKS & ABLATION DEFAULTS ── */}
+      {/* ── SECTION 2: PIPELINE BENCHMARKS & CONFIGURATION DEFAULTS ── */}
       <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
         <div className="flex items-center justify-between border-b border-navy-800 pb-4">
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
-              <FlaskConical className="w-5 h-5 text-amber-400" /> Pipeline Execution Mode &amp; Ablation Defaults
+              <FlaskConical className="w-5 h-5 text-amber-400" /> Pipeline Execution Mode &amp; Benchmark Defaults
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Select default execution mode for formal comparative ablation studies
+              Select default execution mode for formal comparative multi-agent benchmarks
             </p>
           </div>
           <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">Benchmarking</span>
@@ -134,7 +136,80 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ── SECTION 3: SYSTEM TELEMETRY & STORAGE CACHE ── */}
+      {/* ── SECTION 3: GLOBAL APPEARANCE & THEME (DARK / LIGHT) ── */}
+      <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
+        <div className="flex items-center justify-between border-b border-navy-800 pb-4">
+          <div>
+            <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
+              <Sun className="w-5 h-5 text-amber-400" /> Global Appearance &amp; Interface Theme
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Choose between Deep Space Dark Theme and Architectural Light Theme
+            </p>
+          </div>
+          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20 capitalize">
+            {theme} Mode Active
+          </span>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4 pt-2">
+          {/* Dark Theme Card */}
+          <div
+            onClick={() => {
+              setTheme('dark')
+              toast.success('Dark Theme Enabled')
+            }}
+            className={clsx(
+              'p-5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-4',
+              theme === 'dark'
+                ? 'border-cyan-400 bg-cyan-500/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+                : 'border-navy-800 bg-navy-950/60 text-slate-400 hover:border-slate-700'
+            )}
+          >
+            <div className="p-3 rounded-xl bg-navy-950 border border-slate-800 text-cyan-400 flex-shrink-0">
+              <Moon className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-sm text-white">Dark Theme</span>
+                {theme === 'dark' && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Deep space navy background with glowing cyan and violet telemetry accents. Ideal for low-light environments.
+              </p>
+            </div>
+          </div>
+
+          {/* Light Theme Card */}
+          <div
+            onClick={() => {
+              setTheme('light')
+              toast.success('Light Theme Enabled')
+            }}
+            className={clsx(
+              'p-5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-4',
+              theme === 'light'
+                ? 'border-cyan-400 bg-cyan-500/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+                : 'border-navy-800 bg-navy-950/60 text-slate-400 hover:border-slate-700'
+            )}
+          >
+            <div className="p-3 rounded-xl bg-white border border-slate-300 text-amber-500 flex-shrink-0 shadow-sm">
+              <Sun className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-sm text-slate-900 dark:text-white">Light Theme</span>
+                {theme === 'light' && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Clean architectural slate palette with crisp typography, soft glass borders, and high daylight contrast.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECTION 4: SYSTEM TELEMETRY & STORAGE CACHE ── */}
       <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
         <div className="flex items-center justify-between border-b border-navy-800 pb-4">
           <div>

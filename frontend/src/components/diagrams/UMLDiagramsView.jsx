@@ -3,6 +3,7 @@ import {
   Users,
   Workflow,
   Activity,
+  Network,
   Layers,
   FolderTree,
   Server,
@@ -30,6 +31,7 @@ const FALLBACK_CLASS = `classDiagram
     class UserController {
         <<controller>>
         -UserService userService
+        -List~String~ allowedRoles
         +getUser(id) User
         +createUser(body) User
         +deleteUser(id) void
@@ -37,6 +39,7 @@ const FALLBACK_CLASS = `classDiagram
     class UserService {
         <<service>>
         -UserRepository userRepository
+        -List~User~ activeUsers
         +findById(id) User
         +save(user) User
         +delete(id) void
@@ -50,12 +53,33 @@ const FALLBACK_CLASS = `classDiagram
         -Long id
         -String username
         -String email
+        -Address address
         +getId() Long
         +getUsername() String
     }
-    UserController --> UserService : userService
-    UserService --> UserRepository : userRepository
-    UserRepository --> User : returns`
+    class Address {
+        <<entity>>
+        -String street
+        -String city
+        -String country
+        +getFullAddress() String
+    }
+    class IUserRepository {
+        <<interface>>
+        +findByEmail(email) Optional_User_
+        +findAll() List_User_
+    }
+    %% Inheritance: UserService specialises no parent (standalone)
+    %% Realization: UserRepository implements IUserRepository
+    IUserRepository <|.. UserRepository
+    %% Directed Association with multiplicity: Controller -> Service
+    UserController "1" --> "1" UserService : userService
+    %% Aggregation: Service has-a list of Users (independent lifecycle)
+    UserService "1" o-- "0..*" User : activeUsers
+    %% Composition: User owns its Address (destroyed together)
+    User "1" *-- "1" Address : address
+    %% Directed Association: Repository -> User (returns)
+    UserRepository "1" --> "0..1" User : returns`
 
 const FALLBACK_SEQUENCE = `sequenceDiagram
     autonumber
@@ -225,6 +249,28 @@ function safeId(s) {
   return (s || 'Unknown').replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
+// ── Use Case relation enrichment ───────────────────────────────────────────
+// Infers UML multiplicity / relation type from the association verb label,
+// mirroring the logic in analysis-service/core/uml_generator.py _enrich_associations().
+function enrichAssociations(associations) {
+  return associations.map(asc => {
+    const lbl = (asc.label || '').toLowerCase()
+    let relation, multiplicity, actorCardinality, ucCardinality
+
+    if (/view|check|status|profile|intake|balance|track|self|join|auth|inspect|display|set|save|export|join|create|edit|delete/.test(lbl)) {
+      // one-to-one: a single actor instance touches a single use-case instance
+      relation = 'one to one'; multiplicity = '1..1'; actorCardinality = '1'; ucCardinality = '1'
+    } else if (/browse|search|monitor|audit|sync|persist|report|metrics|log|enforce|validate|extract|verify|charge|pipe|tokenize|stream|render/.test(lbl)) {
+      // many-to-one: many actor instances converge on one use-case instance
+      relation = 'many to one'; multiplicity = '*..1'; actorCardinality = '*'; ucCardinality = '1'
+    } else {
+      // one-to-many: one actor instance drives multiple use-case instances (default)
+      relation = 'one to many'; multiplicity = '1..*'; actorCardinality = '1'; ucCardinality = '1..*'
+    }
+    return { ...asc, relation, multiplicity, actorCardinality, ucCardinality }
+  })
+}
+
 function safeType(t) {
   if (!t) return 'void'
   let s = t.replace(/<([^>]*)>/g, (_, inner) => '_' + inner.replace(/[, ]/g, '_') + '_')
@@ -262,6 +308,12 @@ function toTitleCase(s) {
 // ── Client-side dynamic generators ──────────────────────────────────────────
 
 function extractUseCaseData(classes, projectName = 'System') {
+  const result = _extractUseCaseDataRaw(classes, projectName)
+  result.associations = enrichAssociations(result.associations)
+  return result
+}
+
+function _extractUseCaseDataRaw(classes, projectName = 'System') {
   const profile = analyzeProjectDomain(classes, projectName)
   const displayTitle = `${profile.title} Use Cases`
   const archetype = profile.archetype || 'custom_domain'
@@ -785,7 +837,7 @@ function extractUseCaseData(classes, projectName = 'System') {
 function buildUseCaseSvg(classes, projectName = 'System') {
   const data = extractUseCaseData(classes, projectName)
   const width = 980
-  const height = 920
+  const height = 980   // extra 60px for relations legend at bottom
   const tabTitle = `uc ${data.title}`
   const tabW = Math.max(190, Math.floor(tabTitle.length * 8.5 + 40))
 
@@ -816,12 +868,47 @@ function buildUseCaseSvg(classes, projectName = 'System') {
     `
   }).join('\n')
 
+  // Association lines with relation badge + multiplicity cards
   const assocSvg = data.associations.map(asc => {
-    const lbl = asc.label ? `<text x="${(asc.fromX + asc.toX) / 2}" y="${(asc.fromY + asc.toY) / 2 - 8}" font-size="12" font-weight="500" fill="#0f172a" text-anchor="middle">${asc.label}</text>` : ''
+    const x1 = asc.fromX, y1 = asc.fromY, x2 = asc.toX, y2 = asc.toY
+    const lbl = asc.label || ''
+    const rel = asc.relation || 'one to many'
+    const actCard = asc.actorCardinality || '1'
+    const ucCard = asc.ucCardinality || '1..*'
+
+    // Unit vector along the association line
+    const dx = x2 - x1, dy = y2 - y1
+    const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+    const ux = dx / dist, uy = dy / dist
+    // Perpendicular offset for cardinality cards
+    const nx = -uy, ny = ux
+
+    // Card positions: 28px from each endpoint, offset perpendicularly 10px
+    const ax = x1 + ux * 28 + nx * 10, ay = y1 + uy * 28 + ny * 10
+    const cxc = x2 - ux * 28 + nx * 10, cyc = y2 - uy * 28 + ny * 10
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+
+    const relBadge = `\u00ab${rel}\u00bb`
+    const bw = Math.max(78, relBadge.length * 6.5 + 16)
+    const cardAW = Math.max(18, actCard.length * 7.5 + 8)
+    const cardUW = Math.max(18, ucCard.length * 7.5 + 8)
+
+    // Verb label rect + text (above midpoint) and relation badge (at midpoint)
+    const lblSvg = lbl
+      ? `<rect x="${mx - Math.max(64, lbl.length * 7 + 12) / 2}" y="${my - 20}" width="${Math.max(64, lbl.length * 7 + 12)}" height="15" rx="3" fill="#ffffff" fill-opacity="0.95" stroke="#e2e8f0" stroke-width="0.8"/>
+  <text x="${mx}" y="${my - 9}" font-size="11" font-weight="600" fill="#0f172a" text-anchor="middle">${lbl}</text>
+  <rect x="${mx - bw / 2}" y="${my + 2}" width="${bw}" height="16" rx="4" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.1"/>
+  <text x="${mx}" y="${my + 13}" font-size="9.5" font-weight="700" fill="#1d4ed8" text-anchor="middle">${relBadge}</text>`
+      : `<rect x="${mx - bw / 2}" y="${my - 8}" width="${bw}" height="16" rx="4" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.1"/>
+  <text x="${mx}" y="${my + 4}" font-size="9.5" font-weight="700" fill="#1d4ed8" text-anchor="middle">${relBadge}</text>`
+
     return `
-  <line x1="${asc.fromX}" y1="${asc.fromY}" x2="${asc.toX}" y2="${asc.toY}" stroke="#0f172a" stroke-width="2"/>
-  ${lbl}
-    `
+  <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#0f172a" stroke-width="2"/>
+  <rect x="${ax - cardAW / 2}" y="${ay - 10}" width="${cardAW}" height="14" rx="3" fill="#ffffff" fill-opacity="0.95" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="${ax}" y="${ay + 1}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle" dominant-baseline="middle">${actCard}</text>
+  <rect x="${cxc - cardUW / 2}" y="${cyc - 10}" width="${cardUW}" height="14" rx="3" fill="#ffffff" fill-opacity="0.95" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="${cxc}" y="${cyc + 1}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle" dominant-baseline="middle">${ucCard}</text>
+  ${lblSvg}`
   }).join('\n')
 
   const extendSvg = data.extensions.map(ext => {
@@ -852,14 +939,14 @@ function buildUseCaseSvg(classes, projectName = 'System') {
   </defs>
 
   <!-- Outer frame -->
-  <rect x="12" y="12" width="956" height="896" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="12" y="12" width="956" height="956" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
 
   <!-- Top-left tab -->
   <polygon points="12,12 ${tabW},12 ${tabW + 16},42 12,42" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
   <text x="24" y="32" font-size="14" font-weight="700" fill="#0f172a">${tabTitle}</text>
 
-  <!-- System Boundary -->
-  <rect x="190" y="52" width="630" height="848" fill="#ffffff" stroke="#94a3b8" stroke-width="1.8" rx="2"/>
+  <!-- System Boundary (height shrunk by 72px to leave room for legend) -->
+  <rect x="190" y="52" width="630" height="${height - 132}" fill="#ffffff" stroke="#94a3b8" stroke-width="1.8" rx="2"/>
   <text x="505" y="80" font-size="17" font-weight="600" fill="#1e293b" text-anchor="middle">System Boundary</text>
 
   ${data.actorsLeft.map(a => actorSvg(a, false)).join('\n')}
@@ -867,6 +954,20 @@ function buildUseCaseSvg(classes, projectName = 'System') {
   ${ovals}
   ${assocSvg}
   ${extendSvg}
+
+  <!-- Relations Legend Bar -->
+  <g id="relations-legend" transform="translate(190, ${height - 72})">
+    <rect x="0" y="0" width="630" height="28" rx="5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="12" y="18" font-size="11" font-weight="700" fill="#334155">Relations:</text>
+    <line x1="74" y1="14" x2="94" y2="14" stroke="#0f172a" stroke-width="2"/>
+    <text x="98" y="18" font-size="10.5" font-weight="600" fill="#1d4ed8">1..1 (one to one)</text>
+    <line x1="208" y1="14" x2="228" y2="14" stroke="#0f172a" stroke-width="2"/>
+    <text x="232" y="18" font-size="10.5" font-weight="600" fill="#1d4ed8">1..* (one to many)</text>
+    <line x1="354" y1="14" x2="374" y2="14" stroke="#0f172a" stroke-width="2"/>
+    <text x="378" y="18" font-size="10.5" font-weight="600" fill="#1d4ed8">*..1 (many to one)</text>
+    <line x1="494" y1="14" x2="514" y2="14" stroke="#0f172a" stroke-width="2" stroke-dasharray="5,3"/>
+    <text x="518" y="18" font-size="10.5" font-weight="600" fill="#475569">&lt;&lt;extend&gt;&gt;</text>
+  </g>
 </svg>`
 }
 
@@ -893,22 +994,40 @@ function buildUseCaseDiagram(classes, projectName = 'System') {
     const cleanLbl = uc.label.replace('\n', ' ')
     lines.push(`        ${uc.id}(["${cleanLbl}"]):::uc`)
   })
-  data.extensions.forEach(ext => {
+
+  // Extensions — match use case pairs by Y coordinate proximity for accuracy
+  data.extensions.forEach((ext, i) => {
     const condTxt = ext.condition ? `\\n${ext.condition}` : ''
-    lines.push(`        ${data.useCases[1]?.id || 'UC2'} -. "<<extend>>${condTxt}" .-> ${data.useCases[0]?.id || 'UC1'}`)
+    const fromUc = data.useCases.find(u => Math.abs(u.cy - ext.fromY) < 50)
+      || data.useCases[Math.min(data.useCases.length - 1, i * 2 + 1)]
+    const toUc = data.useCases.find(u => Math.abs(u.cy - ext.toY) < 50)
+      || data.useCases[Math.min(data.useCases.length - 1, i * 2)]
+    if (fromUc && toUc && fromUc.id !== toUc.id) {
+      lines.push(`        ${fromUc.id} -. "<<extend>>${condTxt}" .-> ${toUc.id}`)
+    }
   })
   lines.push('    end')
+  lines.push('')
 
-  data.associations.slice(0, 6).forEach(asc => {
+  // Actor associations with explicit relation type and multiplicity in edge label
+  const seenLinks = new Set()
+  data.associations.forEach(asc => {
     const aid = safeId(asc.actor)
     const targetUc = data.useCases.find(u => Math.abs(u.cy - asc.toY) < 50) || data.useCases[0]
-    const labelTxt = asc.label ? `|"${asc.label}"|` : ''
-    lines.push(`    ${aid} ---${labelTxt} ${targetUc.id}`)
+    if (!targetUc) return
+    const pairKey = `${aid}__${targetUc.id}`
+    if (seenLinks.has(pairKey)) return
+    seenLinks.add(pairKey)
+    const lbl = asc.label || ''
+    const rel = asc.relation || 'one to many'
+    const mult = asc.multiplicity || '1..*'
+    // Edge label: "verb [relation: multiplicity]"
+    const edgeLabel = lbl ? `${lbl} [${rel}: ${mult}]` : `[${rel}: ${mult}]`
+    lines.push(`    ${aid} ---|"${edgeLabel}"| ${targetUc.id}`)
   })
 
   return lines.join('\n')
 }
-
 function buildActivityDiagram(classes) {
   return FALLBACK_ACTIVITY
 }
@@ -942,6 +1061,7 @@ function buildClassDiagram(classes, projectName = 'System') {
     return !['vite', 'tailwind', 'config', 'slice', 'theme', 'tooltip', 'protected', 'route'].some(ign => cname.includes(ign))
   })
 
+  // ── Fallback: synthesized domain hierarchy ──────────────────────────────
   if (cleanClasses.length < 2) {
     const lines = ['classDiagram']
     lines.push(`    class ${safeId(profile.superName)} {`)
@@ -950,20 +1070,58 @@ function buildClassDiagram(classes, projectName = 'System') {
     profile.superOps.forEach(o => lines.push(`        ${o}`))
     lines.push('    }')
 
+    const ifaceName = `I${safeId(profile.superName)}Service`
+    lines.push(`    class ${ifaceName} {`)
+    lines.push('        <<interface>>')
+    lines.push('        +auditTransaction(txId) Boolean')
+    lines.push('        +validateState() Boolean')
+    lines.push('    }')
+
     profile.subSpecs.forEach(sub => {
       const subId = safeId(sub.name)
       lines.push(`    class ${subId} {`)
       sub.attrs.forEach(a => lines.push(`        ${a.replace(/^\+/, '+String ')}`))
       sub.ops.forEach(o => lines.push(`        ${o}`))
       lines.push('    }')
-      lines.push(`    ${safeId(profile.superName)} <|-- ${subId}`)
     })
+
+    const sub0 = profile.subSpecs[0]?.name ? safeId(profile.subSpecs[0].name) : 'SubEntity1'
+    const sub1 = profile.subSpecs[1]?.name ? safeId(profile.subSpecs[1].name) : 'SubEntity2'
+    const sub2 = profile.subSpecs[2]?.name ? safeId(profile.subSpecs[2].name) : 'SubEntity3'
+
+    // 1. Inheritance
+    lines.push(`    ${safeId(profile.superName)} <|-- ${sub0}`)
+    // 2. Realization
+    lines.push(`    ${ifaceName} <|.. ${sub1}`)
+    // 3. Composition
+    lines.push(`    ${safeId(profile.superName)} "1" *-- "1..*" ${sub1}`)
+    // 4. Aggregation
+    lines.push(`    ${sub1} "1" o-- "0..*" ${sub2}`)
+    // 5. Directed Association
+    lines.push(`    ${safeId(profile.superName)} "1" --> "0..1" ${ifaceName}`)
+    // 6. Association
+    lines.push(`    ${sub0} "0..*" -- "1" ${sub1}`)
+    // 7. Reflexive Association
+    lines.push(`    ${sub2} "0..*" -- "0..*" ${sub2}`)
+
     return lines.join('\n')
   }
 
+  // ── Live class data ──────────────────────────────────────────────────────
   const lines = ['classDiagram']
   const knownNames = new Set(cleanClasses.map(c => c.class_name))
   const rels = []
+  const seenRels = new Set()
+
+  // Collection type prefix pattern — signals aggregation / composition
+  const COLLECTION_RE = /^(List|Set|Collection|Queue|Deque|ArrayList|LinkedList|HashSet|TreeSet|Optional|Map|HashMap|TreeMap|Iterable|Stream)\b/i
+
+  function addRel(line, key) {
+    if (!seenRels.has(key)) {
+      seenRels.add(key)
+      rels.push(line)
+    }
+  }
 
   cleanClasses.slice(0, 15).forEach(cls => {
     const cid = safeId(cls.class_name)
@@ -971,25 +1129,57 @@ function buildClassDiagram(classes, projectName = 'System') {
     lines.push(`    class ${cid} {`)
     if (st) lines.push(`        <<${st}>>`)
 
-    ;(cls.fields || []).slice(0, 6).forEach(f => {
-      const vis = (f.modifiers || []).includes('public') ? '+' : '-'
-      lines.push(`        ${vis}${safeType(f.field_type)} ${safeId(f.field_name)}`)
-    })
-    ;(cls.methods || []).slice(0, 8).forEach(m => {
-      const vis = (m.modifiers || []).includes('public') ? '+' : '-'
-      const params = (m.parameters || []).map(p => safeId(p.name || 'p')).join(' ')
-      lines.push(`        ${vis}${safeId(m.method_name)}(${params}) ${safeType(m.return_type)}`)
-    })
+      ; (cls.fields || []).slice(0, 6).forEach(f => {
+        const vis = (f.modifiers || []).includes('public') ? '+' : '-'
+        lines.push(`        ${vis}${safeType(f.field_type)} ${safeId(f.field_name)}`)
+      })
+      ; (cls.methods || []).slice(0, 8).forEach(m => {
+        const vis = (m.modifiers || []).includes('public') ? '+' : '-'
+        const params = (m.parameters || []).map(p => safeId(p.name || 'p')).join(' ')
+        lines.push(`        ${vis}${safeId(m.method_name)}(${params}) ${safeType(m.return_type)}`)
+      })
     lines.push('    }')
 
-    if (cls.extends) rels.push(`    ${safeId(cls.extends)} <|-- ${cid}`)
-    ;(cls.implements || []).forEach(i => rels.push(`    ${safeId(i)} <|.. ${cid}`))
-    ;(cls.fields || []).forEach(f => {
-      const bare = bareType(f.field_type)
-      if (bare && knownNames.has(bare) && bare !== cls.class_name) {
-        rels.push(`    ${cid} --> ${safeId(bare)} : ${safeId(f.field_name)}`)
-      }
+    // ── Inheritance ──────────────────────────────────────────────────────
+    if (cls.extends) {
+      addRel(`    ${safeId(cls.extends)} <|-- ${cid}`, `${safeId(cls.extends)}__${cid}__inherit`)
+    }
+
+    // ── Realization ──────────────────────────────────────────────────────
+    ; (cls.implements || []).forEach(iface => {
+      addRel(`    ${safeId(iface)} <|.. ${cid}`, `${safeId(iface)}__${cid}__realize`)
     })
+
+      // ── Field-based relations ────────────────────────────────────────────
+      ; (cls.fields || []).forEach(f => {
+        const rawType = f.field_type || ''
+        const bare = bareType(rawType)
+        if (!bare || !knownNames.has(bare)) return
+        const tid = safeId(bare)
+        const fname = safeId(f.field_name)
+
+        // Reflexive association (class holds a reference to itself)
+        if (bare === cls.class_name) {
+          addRel(`    ${cid} "0..*" -- "0..*" ${cid} : "${fname}"`, `${cid}__${cid}__reflexive`)
+          return
+        }
+
+        const isCollection = COLLECTION_RE.test(rawType)
+        const isOwned = (f.modifiers || []).some(m => ['@OneToMany', '@ElementCollection', 'final', 'composition'].includes(m))
+          || /items|children|entries|records|lines|members/.test(fname.toLowerCase())
+
+        if (isCollection && isOwned) {
+          // Composition — owner creates/destroys the parts
+          addRel(`    ${cid} "1" *-- "1..*" ${tid} : "${fname}"`, `${cid}__${tid}__compose`)
+        } else if (isCollection) {
+          // Aggregation — has-a collection, independent lifecycle
+          addRel(`    ${cid} "1" o-- "0..*" ${tid} : "${fname}"`, `${cid}__${tid}__aggregate`)
+        } else {
+          // Directed association — single class-type reference field
+          const multTgt = /manager|owner|parent|head|primary/.test(fname.toLowerCase()) ? '"1"' : '"0..1"'
+          addRel(`    ${cid} "1" --> ${multTgt} ${tid} : "${fname}"`, `${cid}__${tid}__assoc`)
+        }
+      })
   })
 
   lines.push(...rels)
@@ -1130,34 +1320,34 @@ function analyzeProjectDomain(classes = [], projectName = 'System') {
   cleanPname.toLowerCase().split(/\s+/).forEach(w => { if (w.length > 2) allTokens.add(w) })
 
   const extractedClasses = []
-  ;(classes || []).forEach(c => {
-    const cname = c.class_name || ''
-    const fpath = (c.file_path || '').toLowerCase()
-    const cleanCname = cname
-      .replace(/(Controller|Service|Repository|Repo|Manager|Handler|Router|Endpoint|Schema|DTO|Entity|Impl)$/, '')
-      .replace(/^(I|Base|Abstract)/, '')
-    if (cleanCname && cleanCname.length >= 3 && !['app', 'main', 'index', 'database', 'db', 'config', 'test'].includes(cleanCname.toLowerCase())) {
-      extractedClasses.push(cleanCname)
-      allTokens.add(cleanCname.toLowerCase())
-    }
-
-    fpath.split(/[^a-zA-Z0-9]+/).forEach(tok => {
-      if (tok.length >= 3 && !['src', 'main', 'java', 'app', 'api', 'routes', 'controllers', 'models', 'services'].includes(tok)) {
-        allTokens.add(tok)
+    ; (classes || []).forEach(c => {
+      const cname = c.class_name || ''
+      const fpath = (c.file_path || '').toLowerCase()
+      const cleanCname = cname
+        .replace(/(Controller|Service|Repository|Repo|Manager|Handler|Router|Endpoint|Schema|DTO|Entity|Impl)$/, '')
+        .replace(/^(I|Base|Abstract)/, '')
+      if (cleanCname && cleanCname.length >= 3 && !['app', 'main', 'index', 'database', 'db', 'config', 'test'].includes(cleanCname.toLowerCase())) {
+        extractedClasses.push(cleanCname)
+        allTokens.add(cleanCname.toLowerCase())
       }
-    })
 
-    ;(c.methods || []).forEach(m => {
-      const mname = m.method_name || ''
-      const cleanM = mname.replace(/^(get|post|put|delete|patch|handle|find|create|update|set|on)_?/i, '')
-      if (cleanM && cleanM.length >= 3) allTokens.add(cleanM.toLowerCase())
-    })
+      fpath.split(/[^a-zA-Z0-9]+/).forEach(tok => {
+        if (tok.length >= 3 && !['src', 'main', 'java', 'app', 'api', 'routes', 'controllers', 'models', 'services'].includes(tok)) {
+          allTokens.add(tok)
+        }
+      })
 
-    ;(c.fields || []).forEach(f => {
-      const fname = f.field_name || ''
-      if (fname && fname.length >= 3) allTokens.add(fname.toLowerCase())
+        ; (c.methods || []).forEach(m => {
+          const mname = m.method_name || ''
+          const cleanM = mname.replace(/^(get|post|put|delete|patch|handle|find|create|update|set|on)_?/i, '')
+          if (cleanM && cleanM.length >= 3) allTokens.add(cleanM.toLowerCase())
+        })
+
+        ; (c.fields || []).forEach(f => {
+          const fname = f.field_name || ''
+          if (fname && fname.length >= 3) allTokens.add(fname.toLowerCase())
+        })
     })
-  })
 
   const pLower = cleanPname.toLowerCase()
   const pWords = new Set(pLower.split(/\s+/))
@@ -1472,7 +1662,7 @@ function analyzeProjectDomain(classes = [], projectName = 'System') {
     }
   } else if (isResume) {
     archetype = 'recruitment'
-    primaryActor = 'Candidate'
+    primaryActor = (Array.from(allTokens).some(t => t.includes('applicant') || t.includes('job')) || pLower.includes('applicant') || pLower.includes('job') || pLower.includes('ats') || pLower.includes('recruit')) ? 'Applicant' : 'Candidate'
     adminActor = 'Recruiter'
     engineName = 'ResumeParser'
     dbName = 'CandidateDB'
@@ -1825,51 +2015,777 @@ function analyzeProjectDomain(classes = [], projectName = 'System') {
 
 // ── SVG Diagram Builders ────────────────────────────────────────────────────
 
-function buildClassSvg(classes = [], projectName = 'System') {
-  const width = 860
-  const height = 520
-  const profile = analyzeProjectDomain(classes, projectName)
+function cleanUmlType(t) {
+  if (!t) return 'void'
+  let s = String(t).trim()
+  if (/Promise[<_](any|void|unknown)[_>]?/i.test(s)) return 'Promise'
+  const m = s.match(/^Promise[<_]([a-zA-Z0-9]+)[_>]?/)
+  if (m) {
+    const inner = m[1]
+    return ['any', 'void', 'unknown'].includes(inner.toLowerCase()) ? 'Promise' : `Promise<${inner}>`
+  }
+  s = s.replace(/List[<_]([a-zA-Z0-9]+)[_>]?/g, 'List<$1>')
+  s = s.replace(/Set[<_]([a-zA-Z0-9]+)[_>]?/g, 'Set<$1>')
+  s = s.replace(/Map[<_]([a-zA-Z0-9]+)[_,]([a-zA-Z0-9]+)[_>]?/g, 'Map<$1,$2>')
+  s = s.replace(/^_+|_+$/g, '')
+  return s || 'void'
+}
 
-  const superName = profile.superName
-  const superAttrs = profile.superAttrs
-  const superOps = profile.superOps
-  const subs = profile.subSpecs
+function formatUmlParams(params) {
+  if (!params || !params.length) return ''
+  const pNames = params.map(p => {
+    if (typeof p === 'object' && p !== null) return (p.name || 'arg').toLowerCase()
+    return String(p || '').split(':')[0].trim().toLowerCase()
+  })
 
-  const renderClassBox = (x, y, w, h, name, attrs, methods) => {
-    const headerH = 38
-    const attrH = 50
-    const attrLines = attrs.slice(0, 2).map((a, idx) => `<text x="${x + 12}" y="${y + headerH + 20 + idx * 18}" font-size="13" font-family="'Segoe UI', -apple-system, sans-serif" fill="#0f172a">${a}</text>`).join('\n')
-    const methodLines = methods.slice(0, 2).map((m, idx) => `<text x="${x + 12}" y="${y + headerH + attrH + 20 + idx * 18}" font-size="13" font-family="'Segoe UI', -apple-system, sans-serif" fill="#0f172a">${m}</text>`).join('\n')
-
-    return `
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#ffffff" stroke="#000000" stroke-width="1.8"/>
-    <rect x="${x}" y="${y}" width="${w}" height="${headerH}" fill="#d9f2d9" stroke="#000000" stroke-width="1.8"/>
-    <text x="${x + w / 2}" y="${y + 25}" font-size="17" font-weight="700" font-family="'Segoe UI', -apple-system, sans-serif" fill="#0f172a" text-anchor="middle">${name}</text>
-    <line x1="${x}" y1="${y + headerH}" x2="${x + w}" y2="${y + headerH}" stroke="#000000" stroke-width="1.8"/>
-    ${attrLines}
-    <line x1="${x}" y1="${y + headerH + attrH}" x2="${x + w}" y2="${y + headerH + attrH}" stroke="#000000" stroke-width="1.8"/>
-    ${methodLines}
-    `
+  // If Express/FastAPI HTTP handler plumbing (req, res, next)
+  if (pNames.every(n => ['req', 'res', 'next', 'request', 'response'].includes(n))) {
+    return pNames.length >= 2 ? 'req, res' : (pNames[0] || '')
   }
 
-  const superBox = renderClassBox(340, 40, 200, 140, superName, superAttrs, superOps)
-  const subBox0 = renderClassBox(20, 290, 240, 140, subs[0]?.name || 'SubEntity1', subs[0]?.attrs || [], subs[0]?.ops || [])
-  const subBox1 = renderClassBox(300, 290, 240, 140, subs[1]?.name || 'SubEntity2', subs[1]?.attrs || [], subs[1]?.ops || [])
-  const subBox2 = renderClassBox(580, 290, 240, 140, subs[2]?.name || 'SubEntity3', subs[2]?.attrs || [], subs[2]?.ops || [])
+  const parts = params.map(p => {
+    if (typeof p === 'object' && p !== null) {
+      const pname = p.name || 'arg'
+      const ptype = cleanUmlType(p.type || 'Any')
+      return ptype && ptype !== 'Any' ? `${pname}: ${ptype}` : pname
+    }
+    return String(p || '')
+  }).filter(Boolean)
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="background-color: #f3f4f6; font-family: 'Segoe UI', -apple-system, sans-serif;">
-  <rect width="100%" height="100%" fill="#f3f4f6"/>
-  ${superBox}
-  ${subBox0}
-  ${subBox1}
-  ${subBox2}
-  <!-- Generalization Triangle and Branch Lines -->
-  <polygon points="440,180 450,205 430,205" fill="#ffffff" stroke="#000000" stroke-width="1.8"/>
-  <line x1="440" y1="205" x2="440" y2="245" stroke="#000000" stroke-width="1.8"/>
-  <line x1="140" y1="245" x2="700" y2="245" stroke="#000000" stroke-width="1.8"/>
-  <line x1="140" y1="245" x2="140" y2="290" stroke="#000000" stroke-width="1.8"/>
-  <line x1="440" y1="245" x2="440" y2="290" stroke="#000000" stroke-width="1.8"/>
-  <line x1="700" y1="245" x2="700" y2="290" stroke="#000000" stroke-width="1.8"/>
+  let res = parts.join(', ')
+  if (res.length > 22) {
+    res = params.map(p => typeof p === 'object' && p !== null ? (p.name || 'arg') : String(p).split(':')[0].trim()).join(', ')
+  }
+  return res
+}
+
+function synthesizeUniqueMembers(className = '', existingFields = [], existingMethods = []) {
+  const cLower = (className || '').toLowerCase()
+
+  const seenAttrs = new Set()
+  const attrs = []
+  ;(existingFields || []).forEach(f => {
+    const fname = safeId(f.field_name || '')
+    if (!fname || seenAttrs.has(fname.toLowerCase())) return
+    seenAttrs.add(fname.toLowerCase())
+    const vis = (f.modifiers || []).includes('public') ? '+' : '-'
+    const ftype = cleanUmlType(f.field_type || 'String')
+    attrs.push(`${vis}${fname}: ${ftype}`)
+  })
+
+  const seenOps = new Set()
+  const ops = []
+  ;(existingMethods || []).forEach(m => {
+    const mname = safeId(m.method_name || '')
+    if (!mname || seenOps.has(mname.toLowerCase())) return
+    seenOps.add(mname.toLowerCase())
+    const vis = (m.modifiers || []).includes('private') ? '-' : '+'
+    const cleanRtype = cleanUmlType(m.return_type || 'void')
+    const pStr = formatUmlParams(m.parameters || [])
+    ops.push(`${vis}${mname}(${pStr}): ${cleanRtype}`)
+  })
+
+  const domainDict = {
+    car: [
+      ['-make: String', '-model: String', '-year: int'],
+      ['+start(): void', '+stop(): void', '+drive(speed: int): void']
+    ],
+    animal: [
+      ['+age: Int', '+gender: String', '-weight: float'],
+      ['+isMammal(): boolean', '+mate(): void', '+makeSound(): void']
+    ],
+    duck: [
+      ['+beakColr: String = "Yellow"', '-flightSpeed: float'],
+      ['+isMammal(): boolean', '+mate(): void', '+swim(): void']
+    ],
+    fish: [
+      ['-sizeInFt: Int', '-canEat: Boolean', '-habitat: String'],
+      ['-Swim(): void', '+dive(depth: int): void', '+feed(): void']
+    ],
+    zebra: [
+      ['+is_wild: Boolean', '-stripeCount: int', '-speed: float'],
+      ['+run(): void', '+graze(): void', '+flee(): void']
+    ],
+    course: [
+      ['-courseId: String', '-title: String', '-category: String'],
+      ['+getSyllabus(): String', '+enrollStudent(id: String): boolean', '+calculateGrade(): float']
+    ],
+    session: [
+      ['-sessionId: String', '-courseId: String', '-startTime: DateTime'],
+      ['+startSession(): void', '+recordEmotion(state: String): void', '+terminate(): void']
+    ],
+    emotion: [
+      ['-timestamp: DateTime', '-emotionLabel: String', '-confidence: float'],
+      ['+detectFromFrame(frame: Image): String', '+getDominantMood(): String', '+logState(): void']
+    ],
+    user: [
+      ['-userId: String', '-username: String', '-email: String'],
+      ['+login(creds: Auth): boolean', '+getProfile(): Profile', '+updateSettings(): void']
+    ],
+    student: [
+      ['-studentId: String', '-gpa: float', '-enrollmentDate: Date'],
+      ['+submitAssignment(task: Task): void', '+viewGrades(): List_Grade_', '+registerCourse(): boolean']
+    ],
+    instructor: [
+      ['-facultyId: String', '-department: String', '-officeHours: String'],
+      ['+gradeSubmission(sub: Submission): void', '+publishExam(exam: Exam): void', '+scheduleLecture(): void']
+    ],
+    employee: [
+      ['-empId: String', '-designation: String', '-salary: double'],
+      ['+markAttendance(): void', '+applyLeave(days: int): boolean', '+getSalarySlip(): Slip']
+    ],
+    order: [
+      ['-orderId: String', '-orderDate: Date', '-totalAmount: double'],
+      ['+calculateTotal(): double', '+processPayment(): boolean', '+trackShipment(): String']
+    ],
+    main: [
+      ['-app: FastAPI', '-emotionLabels: List_String_', '-confidenceThreshold: float'],
+      ['+preprocess_image(img: Bytes): Tensor', '+detect_emotion(img): Dict', '+stream_session(): Response']
+    ]
+  }
+
+  let matched = null
+  for (const [key, spec] of Object.entries(domainDict)) {
+    if (cLower.includes(key)) {
+      matched = spec
+      break
+    }
+  }
+
+  if (!matched) {
+    const nameClean = (className || 'Entity').replace(/[^a-zA-Z0-9]/g, '')
+    matched = [
+      [`-${nameClean.toLowerCase()}Id: String`, `-${nameClean.toLowerCase()}Name: String`, '-status: String'],
+      [`+get${nameClean}Details(): ${nameClean}`, `+update${nameClean}(data: Map): boolean`, `+verify${nameClean}State(): void`]
+    ]
+  }
+
+  const finalAttrs = [...attrs]
+  for (const a of matched[0]) {
+    if (finalAttrs.length >= 3) break
+    const aName = a.split(':')[0].replace(/[-+\s]/g, '')
+    if (!finalAttrs.some(ex => ex.toLowerCase().includes(aName.toLowerCase()))) {
+      finalAttrs.push(a)
+    }
+  }
+
+  const finalOps = [...ops]
+  for (const o of matched[1]) {
+    if (finalOps.length >= 3) break
+    const oName = o.split('(')[0].replace(/[-+\s]/g, '')
+    if (!finalOps.some(ex => ex.toLowerCase().includes(oName.toLowerCase()))) {
+      finalOps.push(o)
+    }
+  }
+
+  return {
+    attrs: finalAttrs.slice(0, 3),
+    ops: finalOps.slice(0, 3)
+  }
+}
+
+function buildClassSvg(classes = [], projectName = 'System') {
+  const width = 980
+  const height = 745
+  const profile = analyzeProjectDomain(classes, projectName)
+  const title = `${profile.title} UML Class Model`
+
+  const cleanClasses = (classes || []).filter(c => {
+    const cname = (c.class_name || '').toLowerCase()
+    return !['vite', 'tailwind', 'config', 'slice', 'theme', 'tooltip', 'protected', 'route'].some(ign => cname.includes(ign))
+  })
+
+  const renderClassBox = (bx, by, bw, bname, battrs, bops, stereotype = '') => {
+    const headH = stereotype ? 42 : 36
+    const attrLines = (battrs || []).slice(0, 3)
+    const opsLines = (bops || []).slice(0, 3)
+    const attrH = Math.max(40, attrLines.length * 22 + 8)
+    const opsH = Math.max(40, opsLines.length * 22 + 8)
+    const totH = headH + attrH + opsH
+
+    // Safe character budget that fits comfortably inside bw without crossing borders
+    const maxChars = Math.max(24, Math.floor((bw - 28) / 5.8))
+    const truncateFit = s => {
+      if (!s) return ''
+      return s.length > maxChars ? s.slice(0, maxChars - 1) + '…' : s
+    }
+
+    const safeAttrs = attrLines.map(truncateFit)
+    const safeOps = opsLines.map(truncateFit)
+
+    const stereoText = stereotype
+      ? `<text x="${bx + bw / 2}" y="${by + 16}" font-size="11" font-style="italic" fill="#334155" text-anchor="middle">&lt;&lt;${stereotype}&gt;&gt;</text>`
+      : ''
+    const nameY = stereotype ? by + 32 : by + 24
+    const clipId = `clip-${bx}-${by}`
+
+    const attrSvg = safeAttrs.map((a, idx) =>
+      `    <text x="${bx + 14}" y="${by + headH + 19 + idx * 22}" font-size="11.5" fill="#0f172a" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">${a}</text>`
+    ).join('\n')
+
+    const opsSvg = safeOps.map((o, idx) =>
+      `    <text x="${bx + 14}" y="${by + headH + attrH + 19 + idx * 22}" font-size="11.5" fill="#0f172a" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">${o}</text>`
+    ).join('\n')
+
+    return {
+      svg: `
+  <!-- Class Box: ${bname} -->
+  <defs>
+    <clipPath id="${clipId}">
+      <rect x="${bx + 1}" y="${by + headH}" width="${bw - 2}" height="${attrH + opsH}"/>
+    </clipPath>
+  </defs>
+  <rect x="${bx}" y="${by}" width="${bw}" height="${headH}" fill="#d5e8d4" stroke="#0f172a" stroke-width="1.8" rx="2"/>
+  ${stereoText}
+  <text x="${bx + bw / 2}" y="${nameY}" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">${bname}</text>
+  <rect x="${bx}" y="${by + headH}" width="${bw}" height="${attrH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+  <rect x="${bx}" y="${by + headH + attrH}" width="${bw}" height="${opsH}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+  <g clip-path="url(#${clipId})">
+${attrSvg}
+${opsSvg}
+  </g>
+      `,
+      height: totH
+    }
+  }
+
+  const legendBar = `
+  <!-- Relations Legend Bar (All 8 Relations from Specification) -->
+  <g id="class-relations-legend" transform="translate(20, 685)">
+    <rect x="0" y="0" width="940" height="38" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="12" y="24" font-size="11" font-weight="700" fill="#334155">Relations:</text>
+
+    <!-- 1. Association -->
+    <line x1="78" y1="19" x2="100" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <text x="105" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Association</text>
+
+    <!-- 2. Directed Association -->
+    <line x1="172" y1="19" x2="192" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <polygon points="196,19 188,15 188,23" fill="#0f172a"/>
+    <text x="201" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Directed</text>
+
+    <!-- 3. Reflexive Association -->
+    <path d="M 252 23 C 260 12, 268 12, 276 23" fill="none" stroke="#0f172a" stroke-width="1.8"/>
+    <text x="281" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Reflexive</text>
+
+    <!-- 4. Multiplicity -->
+    <rect x="334" y="11" width="24" height="16" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+    <text x="346" y="23" font-size="9.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+    <text x="363" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Multiplicity</text>
+
+    <!-- 5. Aggregation -->
+    <polygon points="426,19 432,15 438,19 432,23" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="438" y1="19" x2="456" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <text x="461" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Aggregation (&#9671;)</text>
+
+    <!-- 6. Composition -->
+    <polygon points="552,19 558,15 564,19 558,23" fill="#0f172a" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="564" y1="19" x2="582" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <text x="587" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Composition (&#9670;)</text>
+
+    <!-- 7. Inheritance -->
+    <polygon points="692,19 684,14 684,24" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="684" y1="19" x2="666" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <text x="697" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Inheritance (&#9651;)</text>
+
+    <!-- 8. Realization -->
+    <polygon points="806,19 798,14 798,24" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="798" y1="19" x2="780" y2="19" stroke="#0f172a" stroke-width="2" stroke-dasharray="3,2"/>
+    <text x="811" y="23" font-size="10" font-weight="600" fill="#1d4ed8">Realization (&#9651;&#9572;)</text>
+  </g>`
+
+  const tabW = Math.max(210, title.length * 8 + 40)
+  const COLL_RE = /^(List|Set|Collection|Queue|Deque|ArrayList|LinkedList|HashSet|TreeSet|Optional|Map|HashMap|TreeMap|Iterable|Stream)\b/i
+
+  // Helper to check field relation between two classes
+  const checkFieldRel = (srcC, tgtC) => {
+    const tgtName = tgtC.class_name
+    const tgtLower = tgtName.toLowerCase()
+    for (const f of (srcC.fields || [])) {
+      const rawType = f.field_type || ''
+      const bare = bareType(rawType)
+      const fnLower = (f.field_name || '').toLowerCase()
+      const ftLower = rawType.toLowerCase()
+      const isMatch = (bare === tgtName) || (tgtLower.length >= 3 && (tgtLower === fnLower || fnLower.includes(tgtLower) || fnLower.startsWith(tgtLower) || ftLower.includes(tgtLower)))
+      if (isMatch) {
+        const isColl = COLL_RE.test(rawType)
+        const isOwned = (f.modifiers || []).some(m => ['@OneToMany', '@ElementCollection', 'final', 'composition'].includes(m))
+          || /items|children|entries|records|lines|members|log|logs/.test(fnLower)
+        if (isColl && isOwned) return ['composition', f.field_name]
+        if (isColl) return ['aggregation', f.field_name]
+        return ['directed', f.field_name]
+      }
+    }
+    return null
+  }
+
+  // Case A: Real parsed classes available
+  if (cleanClasses.length >= 2) {
+    const knownNames = new Set(cleanClasses.map(c => c.class_name))
+    const scored = cleanClasses.map(c => {
+      let sc = (c.methods || []).length + (c.fields || []).length
+      if (c.extends && knownNames.has(c.extends)) sc += 6
+      if ((c.implements || []).some(imp => knownNames.has(imp))) sc += 6
+      if (c.is_interface) sc += 4
+      const st = getStereotype(c)
+      if (['controller', 'service', 'repository', 'entity'].includes(st)) sc += 4
+      return { cls: c, score: sc }
+    })
+    scored.sort((a, b) => b.score - a.score)
+    const chosen = scored.slice(0, 5).map(s => s.cls)
+    const chosenNames = new Set(chosen.map(c => c.class_name))
+    const extendedByChosen = new Set(chosen.filter(c => c.extends && chosenNames.has(c.extends)).map(c => c.extends))
+
+    let row1 = []
+    let row2 = []
+    chosen.forEach(c => {
+      const st = getStereotype(c)
+      if (c.is_interface || extendedByChosen.has(c.class_name) || ['controller', 'service'].includes(st) || /Controller|Service/.test(c.class_name || '')) {
+        row1.push(c)
+      } else {
+        row2.push(c)
+      }
+    })
+
+    if (row1.length === 0) {
+      row1 = row2.slice(0, Math.max(1, Math.floor(row2.length / 2)))
+      row2 = chosen.filter(c => !row1.includes(c))
+    } else if (row2.length === 0) {
+      row2 = row1.slice(Math.max(1, Math.floor(row1.length / 2)))
+      row1 = chosen.filter(c => !row2.includes(c))
+    }
+
+    row1 = row1.slice(0, 3)
+    row2 = row2.slice(0, 3)
+
+    // Topological sort for Row 2 so related classes are adjacent
+    if (row2.length === 3) {
+      const [cA, cB, cC] = row2
+      const pairAB = Boolean(checkFieldRel(cA, cB) || checkFieldRel(cB, cA))
+      const pairBC = Boolean(checkFieldRel(cB, cC) || checkFieldRel(cC, cB))
+      const pairAC = Boolean(checkFieldRel(cA, cC) || checkFieldRel(cC, cA))
+
+      if (pairAB && !pairAC && !pairBC) {
+        const scoreA = row1.filter(r1 => checkFieldRel(r1, cA) || checkFieldRel(cA, r1)).length
+        const scoreB = row1.filter(r1 => checkFieldRel(r1, cB) || checkFieldRel(cB, r1)).length
+        row2 = scoreB >= scoreA ? [cA, cB, cC] : [cB, cA, cC]
+      } else if (pairAC && !pairAB && !pairBC) {
+        const scoreA = row1.filter(r1 => checkFieldRel(r1, cA) || checkFieldRel(cA, r1)).length
+        const scoreC = row1.filter(r1 => checkFieldRel(r1, cC) || checkFieldRel(cC, r1)).length
+        row2 = scoreA >= scoreC ? [cC, cA, cB] : [cA, cC, cB]
+      } else if (pairBC && !pairAB && !pairAC) {
+        const scoreB = row1.filter(r1 => checkFieldRel(r1, cB) || checkFieldRel(cB, r1)).length
+        const scoreC = row1.filter(r1 => checkFieldRel(r1, cC) || checkFieldRel(cC, r1)).length
+        row2 = scoreC >= scoreB ? [cB, cC, cA] : [cC, cB, cA]
+      } else if (pairAB && pairBC) {
+        row2 = [cA, cB, cC]
+      } else if (pairAB && pairAC) {
+        row2 = [cB, cA, cC]
+      } else if (pairBC && pairAC) {
+        row2 = [cA, cC, cB]
+      }
+    }
+
+    const classCoords = {}
+    const assignCoords = (list, by) => {
+      const k = list.length
+      const coords = k === 1 ? [[280, by, 420]] : k === 2 ? [[70, by, 390], [520, by, 390]] : [[35, by, 290], [345, by, 290], [655, by, 290]]
+      list.forEach((c, idx) => {
+        classCoords[c.class_name] = coords[idx]
+      })
+    }
+    assignCoords(row1, 65)
+    assignCoords(row2, 380)
+
+    const boxHeights = {}
+    const boxesMarkup = [...row1, ...row2].map(c => {
+      const [bx, by, bw] = classCoords[c.class_name]
+      const st = getStereotype(c)
+      const { attrs, ops } = synthesizeUniqueMembers(c.class_name, c.fields, c.methods)
+      const res = renderClassBox(bx, by, bw, c.class_name, attrs, ops, st)
+      boxHeights[c.class_name] = res.height
+      return res.svg
+    })
+
+    const relsMarkup = []
+    const connected = new Set()
+
+    // Standard UML Generalization / Inheritance Bus Routing (matching reference diagram)
+    let isInheritanceTree = false
+    if (row1.length === 1) {
+      const parentCls = row1[0]
+      const subs = row2.filter(c => c.extends === parentCls.class_name)
+      if (subs.length >= 2 || (subs.length === row2.length && subs.length >= 1)) {
+        isInheritanceTree = true
+        const [px, py, pw] = classCoords[parentCls.class_name]
+        const ph = boxHeights[parentCls.class_name] || 120
+        const polyX = px + Math.floor(pw / 2)
+        const polyY = py + ph
+        const busY = 295
+        const minX = Math.min(...subs.map(c => classCoords[c.class_name][0] + Math.floor(classCoords[c.class_name][2] / 2)))
+        const maxX = Math.max(...subs.map(c => classCoords[c.class_name][0] + Math.floor(classCoords[c.class_name][2] / 2)))
+
+        relsMarkup.push(`
+    <!-- Inheritance Tree Connector from ${parentCls.class_name} to Subclasses (Standard UML Bus) -->
+    <polygon points="${polyX},${polyY} ${polyX - 9},${polyY + 16} ${polyX + 9},${polyY + 16}" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+    <line x1="${polyX}" y1="${polyY + 16}" x2="${polyX}" y2="${busY}" stroke="#0f172a" stroke-width="2"/>
+    <line x1="${minX}" y1="${busY}" x2="${maxX}" y2="${busY}" stroke="#0f172a" stroke-width="2"/>
+        `)
+
+        subs.forEach(sub => {
+          const subX = classCoords[sub.class_name][0] + Math.floor(classCoords[sub.class_name][2] / 2)
+          const subY = classCoords[sub.class_name][1]
+          relsMarkup.push(`
+    <line x1="${subX}" y1="${busY}" x2="${subX}" y2="${subY}" stroke="#0f172a" stroke-width="2"/>
+          `)
+          connected.add(`${sub.class_name}__${parentCls.class_name}`)
+          connected.add(`${parentCls.class_name}__${sub.class_name}`)
+        })
+      }
+    }
+
+    // Individual inheritance
+    if (!isInheritanceTree) {
+      ;[...row1, ...row2].forEach(c => {
+        if (c.extends && classCoords[c.extends]) {
+          const [px, py, pw] = classCoords[c.extends]
+          const ph = boxHeights[c.extends] || 120
+          const [cx, cy, cw] = classCoords[c.class_name]
+          if (py < cy) {
+            const polyX = px + Math.floor(pw / 2)
+            const polyY = py + ph
+            const lineX = cx + Math.floor(cw / 2)
+            const lineY = cy
+            relsMarkup.push(`
+    <!-- Inheritance: ${c.class_name} to ${c.extends} -->
+    <polygon points="${polyX},${polyY} ${polyX - 9},${polyY + 16} ${polyX + 9},${polyY + 16}" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+    <line x1="${polyX}" y1="${polyY + 16}" x2="${lineX}" y2="${lineY}" stroke="#0f172a" stroke-width="2"/>
+    <rect x="${polyX + 10}" y="${polyY + 16}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${polyX + 20}" y="${polyY + 27}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${lineX + 10}" y="${lineY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${lineX + 23}" y="${lineY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1..*</text>
+            `)
+            connected.add(`${c.class_name}__${c.extends}`)
+            connected.add(`${c.extends}__${c.class_name}`)
+          }
+        }
+      })
+    }
+
+    // Realization
+    ;[...row1, ...row2].forEach(c => {
+      ;(c.implements || []).forEach(iface => {
+        if (classCoords[iface] && !connected.has(`${c.class_name}__${iface}`)) {
+          const [ix, iy, iw] = classCoords[iface]
+          const ih = boxHeights[iface] || 120
+          const [cx, cy, cw] = classCoords[c.class_name]
+          if (iy < cy) {
+            const polyX = ix + Math.floor(iw / 2)
+            const polyY = iy + ih
+            const lineX = cx + Math.floor(cw / 2)
+            const lineY = cy
+            relsMarkup.push(`
+    <!-- Realization: ${c.class_name} to ${iface} -->
+    <polygon points="${polyX},${polyY} ${polyX - 9},${polyY + 16} ${polyX + 9},${polyY + 16}" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+    <line x1="${polyX}" y1="${polyY + 16}" x2="${lineX}" y2="${lineY}" stroke="#0f172a" stroke-width="2" stroke-dasharray="6,4"/>
+    <rect x="${polyX + 10}" y="${polyY + 16}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${polyX + 20}" y="${polyY + 27}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${lineX - 30}" y="${lineY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${lineX - 17}" y="${lineY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+            `)
+            connected.add(`${c.class_name}__${iface}`)
+            connected.add(`${iface}__${c.class_name}`)
+          }
+        }
+      })
+    })
+
+    // Horizontal connections between adjacent classes in Row 2
+    for (let i = 0; i < row2.length - 1; i++) {
+      const c1 = row2[i]
+      const c2 = row2[i + 1]
+      if (connected.has(`${c1.class_name}__${c2.class_name}`)) continue
+
+      const [cx1, cy1, cw1] = classCoords[c1.class_name]
+      const [cx2, cy2, cw2] = classCoords[c2.class_name]
+      const xLeft = cx1 + cw1
+      const xRight = cx2
+      const midY = cy1 + 55
+
+      const rel1 = checkFieldRel(c1, c2)
+      const rel2 = checkFieldRel(c2, c1)
+
+      let relType = 'aggregation'
+      let direction = 'c1_to_c2'
+      if (rel1) {
+        relType = rel1[0]
+        direction = 'c1_to_c2'
+      } else if (rel2) {
+        relType = rel2[0]
+        direction = 'c2_to_c1'
+      }
+
+      if (relType === 'composition') {
+        if (direction === 'c1_to_c2') {
+          relsMarkup.push(`
+    <!-- Composition: ${c1.class_name} to ${c2.class_name} -->
+    <polygon points="${xLeft},${midY} ${xLeft + 7},${midY - 5} ${xLeft + 14},${midY} ${xLeft + 7},${midY + 5}" fill="#0f172a" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="${xLeft + 14}" y1="${midY}" x2="${xRight}" y2="${midY}" stroke="#0f172a" stroke-width="2"/>
+    <rect x="${xLeft + 16}" y="${midY - 20}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xLeft + 26}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${xRight - 28}" y="${midY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xRight - 15}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1..*</text>
+          `)
+        } else {
+          relsMarkup.push(`
+    <!-- Composition: ${c2.class_name} to ${c1.class_name} -->
+    <polygon points="${xRight},${midY} ${xRight - 7},${midY - 5} ${xRight - 14},${midY} ${xRight - 7},${midY + 5}" fill="#0f172a" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="${xLeft}" y1="${midY}" x2="${xRight - 14}" y2="${midY}" stroke="#0f172a" stroke-width="2"/>
+    <rect x="${xLeft + 4}" y="${midY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xLeft + 17}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+    <rect x="${xRight - 24}" y="${midY - 20}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xRight - 14}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+          `)
+        }
+      } else if (relType === 'aggregation') {
+        if (direction === 'c1_to_c2') {
+          relsMarkup.push(`
+    <!-- Aggregation: ${c1.class_name} to ${c2.class_name} -->
+    <polygon points="${xLeft},${midY} ${xLeft + 7},${midY - 5} ${xLeft + 14},${midY} ${xLeft + 7},${midY + 5}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="${xLeft + 14}" y1="${midY}" x2="${xRight}" y2="${midY}" stroke="#0f172a" stroke-width="2"/>
+    <rect x="${xLeft + 16}" y="${midY - 20}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xLeft + 26}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${xRight - 28}" y="${midY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xRight - 15}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+          `)
+        } else {
+          relsMarkup.push(`
+    <!-- Aggregation: ${c2.class_name} to ${c1.class_name} -->
+    <polygon points="${xRight},${midY} ${xRight - 7},${midY - 5} ${xRight - 14},${midY} ${xRight - 7},${midY + 5}" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+    <line x1="${xLeft}" y1="${midY}" x2="${xRight - 14}" y2="${midY}" stroke="#0f172a" stroke-width="2"/>
+    <rect x="${xLeft + 4}" y="${midY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xLeft + 17}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+    <rect x="${xRight - 24}" y="${midY - 20}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xRight - 14}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+          `)
+        }
+      } else {
+        if (direction === 'c1_to_c2') {
+          relsMarkup.push(`
+    <!-- Directed Association: ${c1.class_name} to ${c2.class_name} -->
+    <line x1="${xLeft}" y1="${midY}" x2="${xRight - 10}" y2="${midY}" stroke="#0f172a" stroke-width="2"/>
+    <polygon points="${xRight},${midY} ${xRight - 10},{midY - 5} ${xRight - 10},{midY + 5}" fill="#0f172a"/>
+    <rect x="${xLeft + 8}" y="${midY - 20}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xLeft + 18}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${xRight - 30}" y="${midY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xRight - 17}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..1</text>
+          `)
+        } else {
+          relsMarkup.push(`
+    <!-- Directed Association: ${c2.class_name} to ${c1.class_name} -->
+    <line x1="${xLeft + 10}" y1="${midY}" x2="${xRight}" y2="${midY}" stroke="#0f172a" stroke-width="2"/>
+    <polygon points="${xLeft},${midY} ${xLeft + 10},{midY - 5} ${xLeft + 10},{midY + 5}" fill="#0f172a"/>
+    <rect x="${xLeft + 12}" y="${midY - 20}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xLeft + 25}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..1</text>
+    <rect x="${xRight - 26}" y="${midY - 20}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${xRight - 16}" y="${midY - 9}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+          `)
+        }
+      }
+      connected.add(`${c1.class_name}__${c2.class_name}`)
+      connected.add(`${c2.class_name}__${c1.class_name}`)
+    }
+
+    // Stepped vertical connections from Row 1 to Row 2
+    if (!isInheritanceTree) {
+      row1.forEach(r1 => {
+        const r1Name = r1.class_name
+        const [bx1, by1, bw1] = classCoords[r1Name]
+        const bh1 = boxHeights[r1Name] || 120
+        const y1Bot = by1 + bh1
+        const cx1 = bx1 + Math.floor(bw1 / 2)
+
+        let matchedTargets = row2.filter(r2 => !connected.has(`${r1Name}__${r2.class_name}`) && (checkFieldRel(r1, r2) || checkFieldRel(r2, r1)))
+        if (matchedTargets.length === 0) {
+          const sorted = [...row2].sort((a, b) => {
+            const distA = Math.abs((classCoords[a.class_name][0] + classCoords[a.class_name][2] / 2) - cx1)
+            const distB = Math.abs((classCoords[b.class_name][0] + classCoords[b.class_name][2] / 2) - cx1)
+            return distA - distB
+          })
+          matchedTargets = [sorted[0]]
+        }
+
+        matchedTargets.forEach(r2 => {
+          const r2Name = r2.class_name
+          if (connected.has(`${r1Name}__${r2Name}`)) return
+          const [bx2, by2, bw2] = classCoords[r2Name]
+          const cx2 = bx2 + Math.floor(bw2 / 2)
+          const y2Top = by2
+
+          if (Math.abs(cx1 - cx2) < 25) {
+            relsMarkup.push(`
+    <!-- Directed Association: ${r1Name} to ${r2Name} -->
+    <line x1="${cx1}" y1="${y1Bot}" x2="${cx1}" y2="${y2Top - 10}" stroke="#0f172a" stroke-width="2"/>
+    <polygon points="${cx1},${y2Top} ${cx1 - 6},${y2Top - 10} ${cx1 + 6},${y2Top - 10}" fill="#0f172a"/>
+    <rect x="${cx1 + 8}" y="${y1Bot + 8}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${cx1 + 18}" y="${y1Bot + 19}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${cx1 + 8}" y="${y2Top - 24}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${cx1 + 21}" y="${y2Top - 13}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..1</text>
+            `)
+          } else {
+            const exitX = Math.min(bx1 + bw1 - 30, Math.max(bx1 + 30, cx1 + (cx2 > cx1 ? 40 : -40)))
+            const midY = y1Bot + Math.floor((y2Top - y1Bot) / 2)
+            const enterX = cx2
+            relsMarkup.push(`
+    <!-- Directed Association: ${r1Name} to ${r2Name} -->
+    <path d="M ${exitX} ${y1Bot} L ${exitX} ${midY} L ${enterX} ${midY} L ${enterX} ${y2Top - 10}" fill="none" stroke="#0f172a" stroke-width="2"/>
+    <polygon points="${enterX},${y2Top} ${enterX - 6},${y2Top - 10} ${enterX + 6},${y2Top - 10}" fill="#0f172a"/>
+    <rect x="${exitX + (cx2 > cx1 ? 8 : -28)}" y="${y1Bot + 6}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${exitX + (cx2 > cx1 ? 18 : -18)}" y="${y1Bot + 17}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+    <rect x="${enterX + 8}" y="${y2Top - 24}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${enterX + 21}" y="${y2Top - 13}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..1</text>
+            `)
+          }
+          connected.add(`${r1Name}__${r2Name}`)
+          connected.add(`${r2Name}__${r1Name}`)
+        })
+      })
+    }
+
+    // Reflexive self-loop (only if genuine self-referential model)
+    ;[...row1, ...row2].forEach(c => {
+      const cname = c.class_name
+      const hasSelf = (c.fields || []).some(f => bareType(f.field_type || '') === cname || (f.field_name || '').toLowerCase().startsWith('parent'))
+      if (hasSelf && !connected.has(`${cname}__${cname}`)) {
+        const [cx, cy, cw] = classCoords[cname]
+        const rx = cx + cw
+        const ry1 = cy + 60
+        const ry2 = cy + 25
+        relsMarkup.push(`
+    <!-- Reflexive Association on ${cname} -->
+    <path d="M ${rx} ${ry1} C ${rx + 36} ${ry1}, ${rx + 36} ${ry2}, ${rx} ${ry2}" fill="none" stroke="#0f172a" stroke-width="2"/>
+    <rect x="${rx + 6}" y="${ry1 - 12}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${rx + 19}" y="${ry1 - 1}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+    <rect x="${rx + 6}" y="${ry2 - 16}" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+    <text x="${rx + 19}" y="${ry2 - 5}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+        `)
+        connected.add(`${cname}__${cname}`)
+      }
+    })
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="background-color: #f8fafc; font-family: 'Segoe UI', -apple-system, sans-serif;">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+
+  <!-- Outer frame and Header Tab -->
+  <rect x="12" y="12" width="956" height="722" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <polygon points="12,12 ${tabW},12 ${tabW + 16},42 12,42" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="24" y="32" font-size="14" font-weight="700" fill="#0f172a">class ${title}</text>
+
+  <!-- Class Boxes -->
+  ${boxesMarkup.join('\n')}
+
+  <!-- Relationships -->
+  ${relsMarkup.join('\n')}
+
+  ${legendBar}
+</svg>`
+  }
+
+  // Case B: Fallback domain classes (< 2 clean classes)
+  const superName = profile.superName || 'Entity'
+  const { attrs: superAttrs, ops: superOps } = synthesizeUniqueMembers(superName, [], [])
+  const ifaceName = `I${superName}Service`
+  const ifaceAttrs = ['+status: String', '+active: Boolean']
+  const ifaceOps = ['+audit(txId: String): Boolean', '+validate(): Boolean']
+
+  const subs = profile.subSpecs || []
+  const sub0Name = subs[0]?.name || 'SubEntity1'
+  const sub1Name = subs[1]?.name || 'SubEntity2'
+  const sub2Name = subs[2]?.name || 'SubEntity3'
+
+  const { attrs: sub0Attrs, ops: sub0Ops } = synthesizeUniqueMembers(sub0Name, [], [])
+  const { attrs: sub1Attrs, ops: sub1Ops } = synthesizeUniqueMembers(sub1Name, [], [])
+  const { attrs: sub2Attrs, ops: sub2Ops } = synthesizeUniqueMembers(sub2Name, [], [])
+
+  const superRes = renderClassBox(70, 65, 390, superName, superAttrs, superOps)
+  const ifaceRes = renderClassBox(520, 65, 390, ifaceName, ifaceAttrs, ifaceOps, 'interface')
+  const subRes0 = renderClassBox(35, 380, 290, sub0Name, sub0Attrs, sub0Ops)
+  const subRes1 = renderClassBox(345, 380, 290, sub1Name, sub1Attrs, sub1Ops)
+  const subRes2 = renderClassBox(655, 380, 290, sub2Name, sub2Attrs, sub2Ops)
+
+  const ySuperBot = 65 + superRes.height
+  const yIfaceBot = 65 + ifaceRes.height
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="background-color: #f8fafc; font-family: 'Segoe UI', -apple-system, sans-serif;">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+
+  <!-- Outer frame and Header Tab -->
+  <rect x="12" y="12" width="956" height="722" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <polygon points="12,12 ${tabW},12 ${tabW + 16},42 12,42" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="24" y="32" font-size="14" font-weight="700" fill="#0f172a">class ${title}</text>
+
+  <!-- Class Boxes -->
+  ${superRes.svg}
+  ${ifaceRes.svg}
+  ${subRes0.svg}
+  ${subRes1.svg}
+  ${subRes2.svg}
+
+  <!-- 1. Inheritance (SubClass1 to SuperClass) -->
+  <polygon points="200,${ySuperBot} 192,${ySuperBot + 14} 208,${ySuperBot + 14}" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <line x1="200" y1="${ySuperBot + 14}" x2="200" y2="380" stroke="#0f172a" stroke-width="2"/>
+  <rect x="210" y="${ySuperBot + 18}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="220" y="${ySuperBot + 29}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+  <rect x="208" y="358" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="221" y="369" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1..*</text>
+
+  <!-- 2. Realization (SubClass2 to Interface) -->
+  <polygon points="715,${yIfaceBot} 707,${yIfaceBot + 14} 723,${yIfaceBot + 14}" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <path d="M 490 380 L 490 310 L 715 310 L 715 ${yIfaceBot + 14}" fill="none" stroke="#0f172a" stroke-width="2" stroke-dasharray="6,4"/>
+  <rect x="725" y="${yIfaceBot + 18}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="735" y="${yIfaceBot + 29}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+  <rect x="460" y="358" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="473" y="369" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+
+  <!-- 3. Composition (SuperClass owns SubClass2) -->
+  <polygon points="320,${ySuperBot} 327,${ySuperBot + 7} 320,${ySuperBot + 14} 313,${ySuperBot + 7}" fill="#0f172a" stroke="#0f172a" stroke-width="2"/>
+  <path d="M 320 ${ySuperBot + 14} L 320 310 L 430 310 L 430 380" fill="none" stroke="#0f172a" stroke-width="2"/>
+  <rect x="330" y="${ySuperBot + 18}" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="340" y="${ySuperBot + 29}" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+  <rect x="438" y="358" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="451" y="369" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1..*</text>
+
+  <!-- 4. Directed Association (SuperClass to Interface) -->
+  <line x1="460" y1="135" x2="508" y2="135" stroke="#0f172a" stroke-width="2"/>
+  <polygon points="520,135 508,130 508,140" fill="#0f172a"/>
+  <rect x="468" y="115" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="478" y="126" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+  <rect x="488" y="142" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="501" y="153" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..1</text>
+
+  <!-- 5. Association (SubClass1 and SubClass2) -->
+  <line x1="325" y1="435" x2="345" y2="435" stroke="#0f172a" stroke-width="2"/>
+  <rect x="315" y="413" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="328" y="424" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+  <rect x="335" y="445" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="345" y="456" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+
+  <!-- 6. Aggregation (SubClass2 has SubClass3) -->
+  <polygon points="635,435 642,430 649,435 642,440" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>
+  <line x1="649" y1="435" x2="655" y2="435" stroke="#0f172a" stroke-width="2"/>
+  <rect x="636" y="413" width="20" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="646" y="424" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">1</text>
+  <rect x="656" y="413" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="669" y="424" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+
+  <!-- 7. Reflexive Association (Self-loop on SubClass3) -->
+  <path d="M 945 440 C 976 440, 976 405, 945 405" fill="none" stroke="#0f172a" stroke-width="2"/>
+  <rect x="948" y="426" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="961" y="437" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+  <rect x="948" y="392" width="26" height="15" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
+  <text x="961" y="403" font-size="10.5" font-weight="700" fill="#0f172a" text-anchor="middle">0..*</text>
+
+  ${legendBar}
 </svg>`
 }
 
@@ -2249,6 +3165,370 @@ function buildPackageSvg(classes = [], projectName = 'System') {
 </svg>`
 }
 
+function getCollaborationData(classes = [], projectName = 'System') {
+  const profile = analyzeProjectDomain(classes, projectName)
+  const archetype = profile.archetype || 'custom_domain'
+
+  let topName = 'Applicant'
+  let dbName = 'Database'
+  let rightName = 'Recruiter'
+  let bottomTitle = 'Job Recruitment system'
+  let link1MsgsDown = ['1 : Ask For Register', '6 : Detail Sentin']
+  let link1MsgsUp = ['2 : Login', '4 : Check the jobs', '7 : Attend the Test', '3 : Verify Login']
+  let link2Msgs = ['5 : Ask to send interview Details', '8 : Selects the Talented applicants', '9 : sends the letter']
+  let link3Msg = '10 : Joining'
+  let selfMsg = '3.1 : [self] Index Audit'
+  let returnMsg = '<-- 4.1 : [return] Auth Token'
+
+  if (archetype === 'recruitment') {
+    topName = (profile.primaryActor === 'Candidate' || profile.primaryActor === 'Applicant') ? 'Applicant' : (profile.primaryActor || 'Applicant')
+    dbName = 'Database'
+    rightName = profile.adminActor || 'Recruiter'
+    bottomTitle = 'Job Recruitment system'
+    link1MsgsDown = ['1 : Ask For Register', '6 : Detail Sentin']
+    link1MsgsUp = ['2 : Login', '4 : Check the jobs', '7 : Attend the Test', '3 : Verify Login']
+    link2Msgs = ['5 : Ask to send interview Details', '8 : Selects the Talented applicants', '9 : sends the letter']
+    link3Msg = '10 : Joining'
+    selfMsg = '3.1 : [self] Index Audit'
+    returnMsg = '<-- 4.1 : [return] Auth Token'
+  } else if (archetype === 'emotion_learning') {
+    topName = profile.primaryActor || 'Student'
+    dbName = 'EmotionSessionDB'
+    rightName = profile.adminActor || 'Instructor'
+    bottomTitle = 'Emotion Learning Platform'
+    link1MsgsDown = ['1 : Authenticate Session', '6 : Stream Emotion Telemetry']
+    link1MsgsUp = ['2 : Start Course Module', '4 : Fetch Active Assessment', '7 : Receive Feedback Alert', '3 : Validate Session Token']
+    link2Msgs = ['5 : Request Attention Check', '8 : Review Performance Summary', '9 : Deliver Course Certificate']
+    link3Msg = '10 : Engagement Report Ready'
+    selfMsg = '3.1 : [self] Aggregate Attention Score'
+    returnMsg = '<-- 4.1 : [return] Engagement Metrics'
+  } else if (archetype === 'food_delivery') {
+    topName = profile.primaryActor || 'Customer'
+    dbName = 'OrderDatabase'
+    rightName = profile.adminActor || 'Kitchen Manager'
+    bottomTitle = 'Food Delivery Platform'
+    link1MsgsDown = ['1 : Browse Menu & Add Items', '6 : Submit Order Payment']
+    link1MsgsUp = ['2 : User Login', '4 : View Cart Summary', '7 : Live Order Status', '3 : Payment Authorized']
+    link2Msgs = ['5 : Order Preparation Notice', '8 : Driver Dispatched', '9 : Order Delivered']
+    link3Msg = '10 : Order Fulfillment Closed'
+    selfMsg = '3.1 : [self] Inventory Reservation'
+    returnMsg = '<-- 4.1 : [return] Order Receipt'
+  } else if (archetype === 'healthcare') {
+    topName = profile.primaryActor || 'Patient'
+    dbName = 'EHR_Database'
+    rightName = profile.adminActor || 'Physician'
+    bottomTitle = 'Healthcare Clinical Platform'
+    link1MsgsDown = ['1 : Book Consultation', '6 : Submit Patient Vitals']
+    link1MsgsUp = ['2 : Patient Portal Login', '4 : Check Appointment Schedule', '7 : View Diagnostic Summary', '3 : Auth Verification']
+    link2Msgs = ['5 : Send Clinical Instructions', '8 : Prescribe Treatment Plan', '9 : Issue Follow-up Notice']
+    link3Msg = '10 : Consultation Completed'
+    selfMsg = '3.1 : [self] Encrypt Health Record'
+    returnMsg = '<-- 4.1 : [return] Consultation Record'
+  } else if (archetype === 'employee_management') {
+    topName = profile.primaryActor || 'Employee'
+    dbName = 'EmployeeDatabase'
+    rightName = profile.adminActor || 'HR Manager'
+    bottomTitle = 'Employee Management Platform'
+    link1MsgsDown = ['1 : Clock In / Register Shift', '6 : Submit Leave Request']
+    link1MsgsUp = ['2 : Employee Login', '4 : View Pay Stub History', '7 : Check Leave Balance', '3 : Verify Identity']
+    link2Msgs = ['5 : Review Performance Goal', '8 : Approve Leave Schedule', '9 : Issue Annual Appraisal']
+    link3Msg = '10 : Payroll Cycle Processed'
+    selfMsg = '3.1 : [self] Calculate Payroll Accrual'
+    returnMsg = '<-- 4.1 : [return] Attendance Summary'
+  } else if (archetype === 'finance') {
+    topName = profile.primaryActor || 'AccountHolder'
+    dbName = 'LedgerDatabase'
+    rightName = profile.adminActor || 'FinanceManager'
+    bottomTitle = 'Financial Banking Platform'
+    link1MsgsDown = ['1 : Initiate Transfer Request', '6 : Confirm Transaction Code']
+    link1MsgsUp = ['2 : Secure Login', '4 : Check Account Balance', '7 : View Statement History', '3 : Multi-Factor Validated']
+    link2Msgs = ['5 : Fraud Alert Review', '8 : Approve High-Value Wire', '9 : Send Monthly Summary']
+    link3Msg = '10 : Settlement Reconciliation Done'
+    selfMsg = '3.1 : [self] Double-Entry Ledger Audit'
+    returnMsg = '<-- 4.1 : [return] Transaction Receipt'
+  } else if (archetype === 'ecommerce') {
+    topName = profile.primaryActor || 'Customer'
+    dbName = 'ProductCatalogDB'
+    rightName = profile.adminActor || 'StoreAdmin'
+    bottomTitle = 'E-Commerce Platform'
+    link1MsgsDown = ['1 : Search Products', '6 : Place Checkout Order']
+    link1MsgsUp = ['2 : Customer Login', '4 : Check Stock Availability', '7 : Order Confirmation Notice', '3 : Verify Session']
+    link2Msgs = ['5 : Promotion Discount Applied', '8 : Shipment Dispatched', '9 : Delivery Receipt Delivered']
+    link3Msg = '10 : Revenue Recorded'
+    selfMsg = '3.1 : [self] Update Inventory Index'
+    returnMsg = '<-- 4.1 : [return] Invoice Details'
+  } else if (archetype === 'cli_parser') {
+    topName = 'Developer'
+    dbName = 'OptionsRegistry'
+    rightName = 'CommandLineParser'
+    bottomTitle = 'Command Line Parser Platform'
+    link1MsgsDown = ['1 : Define CLI Options', '6 : Bind Command Arguments']
+    link1MsgsUp = ['2 : Initialize Context', '4 : Check Option Constraints', '7 : Return Parsed Properties', '3 : Verify Flag Syntax']
+    link2Msgs = ['5 : Display Help Documentation', '8 : Format Syntax Output', '9 : Execute Subcommand']
+    link3Msg = '10 : Execution Complete'
+    selfMsg = '3.1 : [self] Validate Option Groups'
+    returnMsg = '<-- 4.1 : [return] CommandLine Object'
+  } else if (archetype === 'csv_processor') {
+    topName = 'DataEngineer'
+    dbName = 'RecordStore'
+    rightName = 'CSVParser'
+    bottomTitle = 'CSV Processing Pipeline'
+    link1MsgsDown = ['1 : Ingest CSV Source', '6 : Stream Data Records']
+    link1MsgsUp = ['2 : Initialize Reader', '4 : Query Delimiter Schema', '7 : Extract Tabular Data', '3 : Verify File Headers']
+    link2Msgs = ['5 : Output Data Validation', '8 : Format Structured Output', '9 : Export Processed Dataset']
+    link3Msg = '10 : Stream Processing Completed'
+    selfMsg = '3.1 : [self] Validate Row Offsets'
+    returnMsg = '<-- 4.1 : [return] Parsed Record List'
+  } else if (archetype === 'vulnerability_benchmark') {
+    topName = 'SecurityAuditor'
+    dbName = 'VulnerabilityDB'
+    rightName = 'SecurityEvaluator'
+    bottomTitle = 'Vulnerability Benchmark Platform'
+    link1MsgsDown = ['1 : Submit Scan Request', '6 : Record CVE Signature']
+    link1MsgsUp = ['2 : Authenticate Auditor', '4 : Query Exploit Catalog', '7 : Retrieve Vulnerability Metrics', '3 : Verify Access Rules']
+    link2Msgs = ['5 : Request Remediation Rules', '8 : Verify Patch Compliance', '9 : Deliver Threat Audit Dossier']
+    link3Msg = '10 : Benchmark Suite Completed'
+    selfMsg = '3.1 : [self] Correlate CVSS Scores'
+    returnMsg = '<-- 4.1 : [return] Benchmark Report'
+  } else if (archetype === 'collaborative_workspace') {
+    topName = 'WorkspaceMember'
+    dbName = 'WorkspaceStore'
+    rightName = 'WorkspaceAdmin'
+    bottomTitle = 'Collaborative Workspace Platform'
+    link1MsgsDown = ['1 : Join Workspace Channel', '6 : Commit Document Changes']
+    link1MsgsUp = ['2 : Member Login', '4 : Fetch Channel History', '7 : Stream Live Updates', '3 : Session Verified']
+    link2Msgs = ['5 : Grant Channel Permissions', '8 : Moderate Message Stream', '9 : Export Channel Archive']
+    link3Msg = '10 : Audit Log Synchronized'
+    selfMsg = '3.1 : [self] Reconcile Operational Transforms'
+    returnMsg = '<-- 4.1 : [return] Document Snapshot'
+  } else {
+    const words = profile.words || ['System']
+    const primaryConcept = words[0] ? words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase() : 'System'
+    const secondaryConcept = words[1] ? words[1].charAt(0).toUpperCase() + words[1].slice(1).toLowerCase() : 'Resource'
+
+    topName = profile.primaryActor || `${primaryConcept}User`
+    dbName = profile.dbName || `${primaryConcept}Database`
+    rightName = profile.adminActor || profile.engineName || `${primaryConcept}Controller`
+    bottomTitle = `${profile.title || projectName} System`
+
+    link1MsgsDown = [`1 : Ingest ${primaryConcept} Request`, `6 : Submit ${secondaryConcept} Payload`]
+    link1MsgsUp = ['2 : Client Login', `4 : Query ${primaryConcept} State`, `7 : Return ${secondaryConcept} Data`, '3 : Verify Security Token']
+    link2Msgs = [`5 : Process ${primaryConcept} Operations`, `8 : Apply ${secondaryConcept} Rules`, `9 : Emit Operation Receipt`]
+    link3Msg = `10 : ${primaryConcept} Sync Completed`
+    selfMsg = `3.1 : [self] Audit ${secondaryConcept} Index`
+    returnMsg = `<-- 4.1 : [return] ${primaryConcept} Result`
+  }
+
+  return {
+    title: `${profile.title || projectName} UML Collaboration Model`,
+    bottomTitle,
+    archetype,
+    topNode: { name: topName, role: 'actor', stereotype: '<<actor>>' },
+    dbNode: { name: dbName, role: 'multi-object', stereotype: '<<multi-object>>' },
+    rightNode: { name: rightName, role: 'participant', stereotype: '<<participant>>' },
+    link1MsgsDown,
+    link1MsgsUp,
+    link2Msgs,
+    link3Msg,
+    selfMsg,
+    returnMsg,
+  }
+}
+
+function buildCollaborationDiagram(classes = [], projectName = 'System') {
+  const data = getCollaborationData(classes, projectName)
+  const title = data.title
+  const top = data.topNode
+  const db = data.dbNode
+  const right = data.rightNode
+
+  const topLabel = `"${top.stereotype}\\n${top.name}"`
+  const dbLabel = `"${db.stereotype}\\n${db.name}"`
+  const rightLabel = `"${right.stereotype}\\n${right.name}"`
+
+  const downStr = data.link1MsgsDown.join('\\n')
+  const upStr = data.link1MsgsUp.join('\\n')
+  const link2Str = data.link2Msgs.join('\\n')
+  const link3Str = data.link3Msg
+  const returnStr = data.returnMsg
+  const selfStr = data.selfMsg
+
+  return `flowchart TD
+    %% UML Collaboration Diagram: ${title}
+    subgraph CollabGraph ["${title}"]
+        direction TB
+        NodeTop[${topLabel}]
+        NodeDB[(${dbLabel})]
+        NodeRight[${rightLabel}]
+
+        NodeTop --- |"${downStr}"| NodeDB
+        NodeDB --- |"${upStr}"| NodeTop
+        NodeDB -.-> |"${returnStr}"| NodeTop
+        NodeDB --> |"${selfStr}"| NodeDB
+        NodeTop --- |"${link2Str}"| NodeRight
+        NodeDB --- |"${link3Str}"| NodeRight
+    end`
+}
+
+function buildCollaborationSvg(classes = [], projectName = 'System') {
+  const data = getCollaborationData(classes, projectName)
+  const width = 980
+  const height = 700
+
+  const title = data.title
+  const bottomTitle = data.bottomTitle
+  const topName = data.topNode.name
+  const dbName = data.dbNode.name
+  const rightName = data.rightNode.name
+
+  const tabW = Math.max(240, title.length * 8 + 40)
+
+  // Top Node
+  const x1 = 390, y1 = 75, w1 = 200, h1 = 56
+  const cx1 = x1 + Math.floor(w1 / 2)
+
+  // Bottom-Left Node (Multi-Object)
+  const x2Back = 120, y2Back = 420, w2 = 190, h2 = 60
+  const x2 = 100, y2 = 435
+  const cx2 = x2 + Math.floor(w2 / 2)
+
+  // Bottom-Right Node
+  const x3 = 690, y3 = 435, w3 = 190, h3 = 60
+  const cx3 = x3 + Math.floor(w3 / 2)
+
+  const esc = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+  const upTexts = data.link1MsgsUp
+    .map((msg, i) => `<text x="130" y="${i * 20}" font-size="13" font-weight="600" fill="#0f172a" text-anchor="end">${esc(msg)}</text>`)
+    .join('\n    ')
+
+  const downTexts = data.link1MsgsDown
+    .map((msg, i) => `<text x="25" y="${24 + i * 20}" font-size="13" font-weight="600" fill="#0f172a">${esc(msg)}</text>`)
+    .join('\n    ')
+
+  const link2Texts = data.link2Msgs
+    .map((msg, i) => `<text x="65" y="${18 + i * 20}" font-size="13" font-weight="600" fill="#0f172a">${esc(msg)}</text>`)
+    .join('\n    ')
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="100%" style="background-color: #f8fafc; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+
+  <!-- Outer frame and Header Tab -->
+  <rect x="12" y="12" width="956" height="676" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <polygon points="12,12 ${tabW},12 ${tabW + 16},42 12,42" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="24" y="32" font-size="14" font-weight="700" fill="#0f172a">collaboration ${esc(title)}</text>
+
+  <!-- 6. Links (Solid Communication Lines connecting participants) -->
+  <line x1="${x1 + 30}" y1="${y1 + h1}" x2="${x2 + w2 - 20}" y2="${y2}" stroke="#0f172a" stroke-width="2"/>
+  <line x1="${x1 + w1 - 30}" y1="${y1 + h1}" x2="${x3 + 20}" y2="${y3}" stroke="#0f172a" stroke-width="2"/>
+  <line x1="${x2 + w2}" y1="${y2 + Math.floor(h2 / 2)}" x2="${x3}" y2="${y3 + Math.floor(h3 / 2)}" stroke="#0f172a" stroke-width="2"/>
+
+  <!-- 1 & 3. Actor / Participant: Top Node -->
+  <rect x="${x1}" y="${y1}" width="${w1}" height="${h1}" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="${cx1}" y="${y1 + 22}" font-size="11" font-style="italic" fill="#64748b" text-anchor="middle">&lt;&lt;actor&gt;&gt;</text>
+  <text x="${cx1}" y="${y1 + 42}" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">${esc(topName)}</text>
+
+  <!-- 2. Multiple Objects: Bottom-Left (Database - Stacked Multi-Object Rectangles) -->
+  <rect x="${x2Back}" y="${y2Back}" width="${w2}" height="${h2}" rx="4" fill="#f1f5f9" stroke="#0f172a" stroke-width="1.8"/>
+  <rect x="${x2}" y="${y2}" width="${w2}" height="${h2}" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="${cx2}" y="${y2 + 22}" font-size="11" font-style="italic" fill="#64748b" text-anchor="middle">&lt;&lt;multi-object&gt;&gt;</text>
+  <text x="${cx2}" y="${y2 + 44}" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">${esc(dbName)}</text>
+
+  <!-- 1. Participant Object: Bottom-Right Node -->
+  <rect x="${x3}" y="${y3}" width="${w3}" height="${h3}" rx="4" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="${cx3}" y="${y3 + 22}" font-size="11" font-style="italic" fill="#64748b" text-anchor="middle">&lt;&lt;participant&gt;&gt;</text>
+  <text x="${cx3}" y="${y3 + 44}" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">${esc(rightName)}</text>
+
+  <!-- 4. Messages along Link 1 (Actor <-> Database) -->
+  <g transform="translate(185, 175)">
+    ${upTexts}
+    <!-- Arrow pointing ↗ -->
+    <line x1="145" y1="55" x2="185" y2="22" stroke="#0f172a" stroke-width="2.2"/>
+    <polygon points="190,18 178,21 184,30" fill="#0f172a"/>
+  </g>
+
+  <g transform="translate(370, 260)">
+    <!-- Arrow pointing ↙ -->
+    <line x1="10" y1="15" x2="-30" y2="48" stroke="#0f172a" stroke-width="2.2"/>
+    <polygon points="-35,52 -23,49 -29,40" fill="#0f172a"/>
+    ${downTexts}
+  </g>
+
+  <!-- 7. Return Message: Dashed line along Link 1 with open arrowhead -->
+  <g transform="translate(235, 335)">
+    <line x1="0" y1="35" x2="55" y2="-10" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,4"/>
+    <polyline points="43,-7 55,-10 52,2" fill="none" stroke="#2563eb" stroke-width="2.2"/>
+    <rect x="-8" y="2" width="175" height="20" rx="3" fill="#ffffff" stroke="#bfdbfe" stroke-width="1"/>
+    <text x="79" y="16" font-size="11.5" font-weight="600" fill="#1d4ed8" text-anchor="middle">${esc(data.returnMsg)}</text>
+  </g>
+
+  <!-- 4. Messages along Link 2 (Actor <-> Participant) -->
+  <g transform="translate(630, 160)">
+    <!-- Arrow pointing ↖ -->
+    <line x1="50" y1="65" x2="10" y2="32" stroke="#0f172a" stroke-width="2.2"/>
+    <polygon points="5,28 17,31 11,40" fill="#0f172a"/>
+    ${link2Texts}
+  </g>
+
+  <!-- 4. Messages along Link 3 (Database -> Participant) -->
+  <g transform="translate(430, 420)">
+    <text x="60" y="-8" font-size="13.5" font-weight="700" fill="#0f172a" text-anchor="middle">${esc(data.link3Msg)}</text>
+    <line x1="30" y1="7" x2="85" y2="7" stroke="#0f172a" stroke-width="2.2"/>
+    <polygon points="92,7 82,2 82,12" fill="#0f172a"/>
+  </g>
+
+  <!-- 5. Self Message (Loop on Database Multi-Object) -->
+  <g transform="translate(${x2 - 10}, ${y2 + 20})">
+    <path d="M 0 0 C -45 0, -45 -45, 10 -35" fill="none" stroke="#7c3aed" stroke-width="2"/>
+    <polygon points="10,-35 0,-40 2,-30" fill="#7c3aed"/>
+    <rect x="-85" y="-62" width="155" height="20" rx="3" fill="#ffffff" stroke="#ddd6fe" stroke-width="1"/>
+    <text x="-7" y="-48" font-size="11" font-weight="700" fill="#6d28d9" text-anchor="middle">${esc(data.selfMsg)}</text>
+  </g>
+
+  <!-- Bottom Title Label (Matching Reference) -->
+  <text x="40" y="605" font-size="18" font-weight="800" fill="#0f172a">${esc(bottomTitle)}</text>
+
+  <!-- Relations Legend Bar (All Collaboration Diagram Notations) -->
+  <g id="collaboration-legend" transform="translate(20, 635)">
+    <rect x="0" y="0" width="940" height="38" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="12" y="24" font-size="11" font-weight="700" fill="#334155">Notations:</text>
+
+    <!-- 1. Participant Object -->
+    <rect x="80" y="10" width="22" height="18" rx="2" fill="#ffffff" stroke="#0f172a" stroke-width="1.4"/>
+    <text x="110" y="23" font-size="10.5" font-weight="600" fill="#1d4ed8">Object / Actor</text>
+
+    <!-- 2. Multi-Object -->
+    <rect x="205" y="8" width="18" height="16" rx="2" fill="#f1f5f9" stroke="#0f172a" stroke-width="1.2"/>
+    <rect x="200" y="12" width="18" height="16" rx="2" fill="#ffffff" stroke="#0f172a" stroke-width="1.2"/>
+    <text x="228" y="23" font-size="10.5" font-weight="600" fill="#1d4ed8">Multi-Object (Stacked)</text>
+
+    <!-- 3. Link -->
+    <line x1="365" y1="19" x2="395" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <text x="402" y="23" font-size="10.5" font-weight="600" fill="#1d4ed8">Link</text>
+
+    <!-- 4. Message Flow -->
+    <line x1="445" y1="19" x2="475" y2="19" stroke="#0f172a" stroke-width="2"/>
+    <polygon points="480,19 472,15 472,23" fill="#0f172a"/>
+    <text x="486" y="23" font-size="10.5" font-weight="600" fill="#1d4ed8">1: Message</text>
+
+    <!-- 5. Self Message -->
+    <path d="M 565 24 C 555 12, 575 12, 575 22" fill="none" stroke="#7c3aed" stroke-width="1.8"/>
+    <polygon points="575,22 571,17 577,17" fill="#7c3aed"/>
+    <text x="585" y="23" font-size="10.5" font-weight="600" fill="#7c3aed">Self Message</text>
+
+    <!-- 6. Return Message -->
+    <line x1="675" y1="19" x2="705" y2="19" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="4,3"/>
+    <polyline points="682,15 675,19 682,23" fill="none" stroke="#2563eb" stroke-width="1.8"/>
+    <text x="712" y="23" font-size="10.5" font-weight="600" fill="#2563eb">Return Message (dashed)</text>
+
+    <!-- 7. Sequence Numbers -->
+    <rect x="850" y="10" width="22" height="18" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="1"/>
+    <text x="861" y="23" font-size="10" font-weight="700" fill="#1d4ed8" text-anchor="middle">1..N</text>
+    <text x="878" y="23" font-size="10.5" font-weight="600" fill="#1d4ed8">Sequence</text>
+  </g>
+</svg>`
+}
+
 // ── Diagram type metadata ────────────────────────────────────────────────────
 
 const DIAGRAM_META = {
@@ -2258,7 +3538,7 @@ const DIAGRAM_META = {
     border: 'border-orange-400',
     ring: 'ring-orange-400/30',
     iconBg: 'bg-orange-500/15 text-orange-400',
-    label: 'UML Use Case Diagram',
+    label: 'Use Case Diagram',
     badge: 'usecase',
     description: 'System boundary, stick figure actors, peach use case ovals, extend/include relationships',
   },
@@ -2268,7 +3548,7 @@ const DIAGRAM_META = {
     border: 'border-rose-400',
     ring: 'ring-rose-400/30',
     iconBg: 'bg-rose-500/15 text-rose-400',
-    label: 'UML Activity Diagram',
+    label: 'Activity Diagram',
     badge: 'flowchart TD',
     description: 'Workflow execution — input checks, business decisions, parallel forks, and synchronization joins',
   },
@@ -2278,9 +3558,19 @@ const DIAGRAM_META = {
     border: 'border-violet-400',
     ring: 'ring-violet-400/30',
     iconBg: 'bg-violet-500/15 text-violet-400',
-    label: 'UML Sequence Diagram',
+    label: 'Sequence Diagram',
     badge: 'sequenceDiagram',
     description: 'Runtime message interactions — Client → Controller → Service → Repository → Database',
+  },
+  collaboration: {
+    accent: 'indigo',
+    gradient: 'from-indigo-500/20 to-indigo-500/5',
+    border: 'border-indigo-400',
+    ring: 'ring-indigo-400/30',
+    iconBg: 'bg-indigo-500/15 text-indigo-400',
+    label: 'Collaboration Diagram',
+    badge: 'collaboration',
+    description: 'Object interactions — participants, stacked multi-objects, actors, links, and numbered message flows',
   },
   class: {
     accent: 'cyan',
@@ -2288,7 +3578,7 @@ const DIAGRAM_META = {
     border: 'border-cyan-400',
     ring: 'ring-cyan-400/30',
     iconBg: 'bg-cyan-500/15 text-cyan-400',
-    label: 'UML Class Diagram',
+    label: 'Class Diagram',
     badge: 'classDiagram',
     description: 'OOP structure — classes, interfaces, attributes, methods, inheritance and associations',
   },
@@ -2298,7 +3588,7 @@ const DIAGRAM_META = {
     border: 'border-amber-400',
     ring: 'ring-amber-400/30',
     iconBg: 'bg-amber-500/15 text-amber-400',
-    label: 'Component Architecture',
+    label: 'Component Diagram',
     badge: 'flowchart TB',
     description: 'Layered subsystems — Presentation Layer, Business Logic Layer, and Persistence Repositories',
   },
@@ -2347,6 +3637,7 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
   const serverUseCaseMermaid = validateStoredMermaid(diagramsData?.use_case_diagram?.mermaid)
   const serverActivityMermaid = validateStoredMermaid(diagramsData?.activity_diagram?.mermaid)
   const serverSequenceMermaid = validateStoredMermaid(diagramsData?.sequence_diagram?.mermaid)
+  const serverCollaborationMermaid = validateStoredMermaid(diagramsData?.collaboration_diagram?.mermaid)
   const serverClassMermaid = validateStoredMermaid(diagramsData?.class_diagram?.mermaid)
   const serverComponentMermaid = validateStoredMermaid(diagramsData?.component_diagram?.mermaid)
   const serverDeploymentMermaid = validateStoredMermaid(diagramsData?.deployment_diagram?.mermaid)
@@ -2356,11 +3647,13 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
     serverUseCaseMermaid ||
     serverActivityMermaid ||
     serverSequenceMermaid ||
+    serverCollaborationMermaid ||
     serverClassMermaid ||
     serverComponentMermaid ||
     serverDeploymentMermaid ||
     serverPackageMermaid ||
-    diagramsData?.use_case_diagram?.svg
+    diagramsData?.use_case_diagram?.svg ||
+    diagramsData?.collaboration_diagram?.svg
   )
   const hasParsedClasses = Boolean(parsedClasses && parsedClasses.length > 0)
   const hasLiveData = hasServerData || hasParsedClasses
@@ -2386,6 +3679,13 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
       svg: getValidVectorSvg(diagramsData?.sequence_diagram?.svg, () => buildSequenceSvg(parsedClasses, projectName)),
       code: serverSequenceMermaid || buildSequenceDiagram(parsedClasses, projectName),
       isDemo: !serverSequenceMermaid && !diagramsData?.sequence_diagram?.svg && !hasParsedClasses,
+    },
+    {
+      id: 'collaboration',
+      icon: Network,
+      svg: getValidVectorSvg(diagramsData?.collaboration_diagram?.svg, () => buildCollaborationSvg(parsedClasses, projectName)),
+      code: serverCollaborationMermaid || buildCollaborationDiagram(parsedClasses, projectName),
+      isDemo: !serverCollaborationMermaid && !diagramsData?.collaboration_diagram?.svg && !hasParsedClasses,
     },
     {
       id: 'class',
@@ -2441,8 +3741,8 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
         </div>
       )}
 
-      {/* ── 7 Diagram Selector Tabs ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5">
+      {/* ── 8 Diagram Selector Tabs ────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2.5">
         {diagrams.map(diag => {
           const meta = DIAGRAM_META[diag.id]
           const Icon = diag.icon
@@ -2457,15 +3757,15 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
                 'focus:outline-none focus-visible:ring-2',
                 isActive
                   ? [
-                      `bg-gradient-to-b ${meta.gradient}`,
-                      meta.border,
-                      `ring-1 ${meta.ring}`,
-                      'shadow-lg',
-                    ]
+                    `bg-gradient-to-b ${meta.gradient}`,
+                    meta.border,
+                    `ring-1 ${meta.ring}`,
+                    'shadow-lg',
+                  ]
                   : [
-                      'bg-navy-900/60 border-navy-700/50',
-                      'hover:bg-navy-800/60 hover:border-navy-600',
-                    ]
+                    'bg-navy-900/60 border-navy-700/50',
+                    'hover:bg-navy-800/60 hover:border-navy-600',
+                  ]
               )}
             >
               {/* Top row: icon + badge */}
