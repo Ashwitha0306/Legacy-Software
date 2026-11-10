@@ -24,6 +24,24 @@ const STATUS_BADGE = {
   Unsupported:        'badge-unsupported',
 }
 
+const getHttpVerbBadge = (method = '') => {
+  const m = (method || 'GET').toUpperCase().trim()
+  switch (m) {
+    case 'GET':
+      return 'badge-http-get'
+    case 'POST':
+      return 'badge-http-post'
+    case 'PUT':
+      return 'badge-http-put'
+    case 'PATCH':
+      return 'badge-http-patch'
+    case 'DELETE':
+      return 'badge-http-delete'
+    default:
+      return 'badge-http-get'
+  }
+}
+
 export default function AnalysisPage() {
   const { projectId } = useParams()
   const [project, setProject] = useState(null)
@@ -414,7 +432,7 @@ export default function AnalysisPage() {
 
       {/* Top Overview Cards — 11-Agent Core Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <div className="card p-4">
+        <div className="card-hover p-4">
           <div className="flex items-center justify-between mb-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span className="text-xs text-slate-500 font-mono">Agent 9</span>
@@ -423,7 +441,7 @@ export default function AnalysisPage() {
           <p className="text-xs text-slate-400 mt-0.5">Verified Claims</p>
         </div>
 
-        <div className="card p-4">
+        <div className="card-hover p-4">
           <div className="flex items-center justify-between mb-2">
             <Activity className="w-4 h-4 text-cyan-400" />
             <span className="text-xs text-slate-500 font-mono">Agent 9</span>
@@ -436,7 +454,7 @@ export default function AnalysisPage() {
           <p className="text-xs text-slate-400 mt-0.5">Mean Confidence</p>
         </div>
 
-        <div className="card p-4">
+        <div className="card-hover p-4">
           <div className="flex items-center justify-between mb-2">
             <BarChart3 className="w-4 h-4 text-violet-400" />
             <span className="text-xs text-slate-500 font-mono">Agent 11</span>
@@ -449,7 +467,7 @@ export default function AnalysisPage() {
           <p className="text-xs text-slate-400 mt-0.5">Precision</p>
         </div>
 
-        <div className="card p-4">
+        <div className="card-hover p-4">
           <div className="flex items-center justify-between mb-2">
             <BarChart3 className="w-4 h-4 text-amber-400" />
             <span className="text-xs text-slate-500 font-mono">Agent 11</span>
@@ -462,7 +480,7 @@ export default function AnalysisPage() {
           <p className="text-xs text-slate-400 mt-0.5">F1 Score</p>
         </div>
 
-        <div className="card p-4">
+        <div className="card-hover p-4">
           <div className="flex items-center justify-between mb-2">
             <Brain className="w-4 h-4 text-cyan-400" />
             <span className="text-xs text-slate-500 font-mono">Agent 5</span>
@@ -471,7 +489,7 @@ export default function AnalysisPage() {
           <p className="text-xs text-slate-400 mt-0.5">SSKG Nodes</p>
         </div>
 
-        <div className="card p-4">
+        <div className="card-hover p-4">
           <div className="flex items-center justify-between mb-2">
             <Server className="w-4 h-4 text-blue-400" />
             <span className="text-xs text-slate-500 font-mono">Agent 4</span>
@@ -503,10 +521,10 @@ export default function AnalysisPage() {
               if (id === 'health' && !liveHealth) handleComputeHealth()
             }}
             className={clsx(
-              'flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap',
+              'flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer',
               activeTab === id
-                ? 'text-cyan-400 border-cyan-400 bg-cyan-500/5'
-                : 'text-slate-400 hover:text-white border-transparent'
+                ? 'text-cyan-500 dark:text-cyan-400 border-cyan-500 bg-cyan-500/10 dark:bg-cyan-500/5 font-bold shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-white dark:hover:bg-blue-950/60 hover:border-slate-200 dark:hover:border-cyan-500/30 border-transparent'
             )}
           >
             <Icon className="w-4 h-4" />
@@ -999,9 +1017,9 @@ export default function AnalysisPage() {
                 </thead>
                 <tbody className="divide-y divide-navy-800/60 font-mono text-xs">
                   {endpoints.map((ep, i) => (
-                    <tr key={i} className="hover:bg-navy-800/30">
+                    <tr key={i} className="hover:bg-emerald-50/50 dark:hover:bg-navy-800/30 transition-colors">
                       <td className="py-3">
-                        <span className={clsx('px-2 py-0.5 rounded font-bold', ep.http_method === 'GET' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-cyan-500/20 text-cyan-400')}>
+                        <span className={clsx('inline-flex items-center justify-center min-w-[62px] px-2.5 py-1 rounded-md text-[11px] font-black font-mono tracking-wider border shadow-xs transition-transform hover:scale-105', getHttpVerbBadge(ep.http_method))}>
                           {ep.http_method || 'GET'}
                         </span>
                       </td>
@@ -1021,37 +1039,56 @@ export default function AnalysisPage() {
       {activeTab === 'evaluation' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="card p-5 text-center">
-              <p className="text-3xl font-bold text-emerald-400 font-mono">
+            <div className="card-hover p-5 text-center rounded-2xl bg-gradient-to-br from-emerald-500/15 via-white/90 to-emerald-500/5 dark:from-emerald-950/40 dark:to-navy-900 border-2 border-emerald-400/60 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">AGENT 11 METRIC</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono my-2 tracking-tight">
                 {calcPrecision !== undefined && calcPrecision !== null
                   ? `${(calcPrecision * 100).toFixed(1)}%`
                   : 'N/A'}
               </p>
-              <p className="text-xs text-slate-400 mt-1">Precision</p>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Precision</p>
             </div>
-            <div className="card p-5 text-center">
-              <p className="text-3xl font-bold text-cyan-400 font-mono">
+
+            <div className="card-hover p-5 text-center rounded-2xl bg-gradient-to-br from-cyan-500/15 via-white/90 to-cyan-500/5 dark:from-cyan-950/40 dark:to-navy-900 border-2 border-cyan-400/60 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30">GROUNDING RECALL</span>
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              </div>
+              <p className="text-3xl font-black text-cyan-600 dark:text-cyan-400 font-mono my-2 tracking-tight">
                 {calcRecall !== undefined && calcRecall !== null
                   ? `${(calcRecall * 100).toFixed(1)}%`
                   : 'N/A'}
               </p>
-              <p className="text-xs text-slate-400 mt-1">Recall</p>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Recall</p>
             </div>
-            <div className="card p-5 text-center">
-              <p className="text-3xl font-bold text-violet-400 font-mono">
+
+            <div className="card-hover p-5 text-center rounded-2xl bg-gradient-to-br from-violet-500/15 via-white/90 to-violet-500/5 dark:from-violet-950/40 dark:to-navy-900 border-2 border-violet-400/60 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-300 border border-violet-300 dark:border-violet-500/30">HARMONIC MEAN</span>
+                <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+              </div>
+              <p className="text-3xl font-black text-violet-600 dark:text-violet-400 font-mono my-2 tracking-tight">
                 {calcF1 !== undefined && calcF1 !== null
                   ? `${(calcF1 * 100).toFixed(1)}%`
                   : 'N/A'}
               </p>
-              <p className="text-xs text-slate-400 mt-1">F1 Score</p>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">F1 Score</p>
             </div>
-            <div className="card p-5 text-center">
-              <p className="text-3xl font-bold text-red-400 font-mono">
+
+            <div className="card-hover p-5 text-center rounded-2xl bg-gradient-to-br from-rose-500/15 via-white/90 to-rose-500/5 dark:from-rose-950/40 dark:to-navy-900 border-2 border-rose-400/60 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300 border border-rose-300 dark:border-rose-500/30">SUPPRESSION TARGET</span>
+                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+              </div>
+              <p className="text-3xl font-black text-rose-600 dark:text-rose-400 font-mono my-2 tracking-tight">
                 {calcHallucination !== undefined && calcHallucination !== null
                   ? `${(calcHallucination * 100).toFixed(1)}%`
                   : '0.0%'}
               </p>
-              <p className="text-xs text-slate-400 mt-1">Hallucination Rate</p>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Hallucination Rate</p>
             </div>
           </div>
           
@@ -1165,33 +1202,33 @@ export default function AnalysisPage() {
                 // "pipeline started" -> white
                 // "pipeline completed" -> green
                 const badgeClass = isPipeStarted
-                  ? 'bg-white text-slate-950 border-white font-black shadow-sm shadow-white/40'
+                  ? 'status-box-pipe-started'
                   : isStarted
-                  ? 'bg-blue-600/30 border-blue-400 text-blue-100 font-bold shadow-sm shadow-blue-500/25'
+                  ? 'status-box-started'
                   : isPipeCompleted
-                  ? 'bg-green-600/35 border-green-400 text-green-100 font-black shadow-sm shadow-green-500/30'
+                  ? 'status-box-pipe-completed'
                   : isCompleted
-                  ? 'bg-lime-500/25 border-lime-400 text-lime-100 font-bold shadow-sm shadow-lime-500/20'
+                  ? 'status-box-completed'
                   : isSkipped
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                  ? 'status-box-skipped'
                   : isFailed
-                  ? 'bg-red-500/25 border-red-400 text-red-200 font-bold'
-                  : 'bg-slate-800 border-slate-600 text-slate-200 font-medium'
+                  ? 'status-box-failed'
+                  : 'bg-slate-200 dark:bg-slate-800 border border-slate-400 dark:border-slate-600 text-slate-900 dark:text-slate-200 font-bold'
 
                 // Row border accent to make the entire entry box look neat, clear, and cohesive
                 const rowBorderClass = isPipeStarted
-                  ? 'border-l-4 border-l-white bg-slate-900/40 hover:bg-slate-900/70 border-navy-800/80'
+                  ? 'border-l-4 border-l-slate-400 dark:border-l-white bg-white/95 dark:bg-slate-900/40 border-slate-200 dark:border-navy-800/80 shadow-xs'
                   : isStarted
-                  ? 'border-l-4 border-l-blue-500 bg-blue-950/20 hover:bg-blue-950/30 border-navy-800/80'
+                  ? 'border-l-4 border-l-blue-600 bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-navy-800/80 shadow-xs'
                   : isPipeCompleted
-                  ? 'border-l-4 border-l-green-500 bg-green-950/25 hover:bg-green-950/35 border-navy-800/80'
+                  ? 'border-l-4 border-l-green-600 bg-green-50/50 dark:bg-green-950/25 border-green-200 dark:border-navy-800/80 shadow-xs'
                   : isCompleted
-                  ? 'border-l-4 border-l-lime-400 bg-lime-950/20 hover:bg-lime-950/30 border-navy-800/80'
+                  ? 'border-l-4 border-l-emerald-500 bg-emerald-50/50 dark:bg-lime-950/20 border-emerald-200 dark:border-navy-800/80 shadow-xs'
                   : isSkipped
-                  ? 'border-l-4 border-l-amber-500 border-navy-800/80 bg-navy-950'
+                  ? 'border-l-4 border-l-amber-500 border-amber-200 dark:border-navy-800/80 bg-amber-50/40 dark:bg-navy-950'
                   : isFailed
-                  ? 'border-l-4 border-l-red-500 border-navy-800/80 bg-red-950/10'
-                  : 'border-navy-800/80 bg-navy-950'
+                  ? 'border-l-4 border-l-rose-500 border-rose-200 dark:border-navy-800/80 bg-rose-50/40 dark:bg-red-950/10'
+                  : 'border-slate-200 dark:border-navy-800/80 bg-white dark:bg-navy-950'
 
                 const displayEvent = entry.event?.replace(/_/g, ' ') || entry.event
 
@@ -1204,15 +1241,15 @@ export default function AnalysisPage() {
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-[11px] font-mono text-slate-400 font-semibold px-2 py-0.5 rounded bg-navy-900/90 border border-navy-800/80 flex-shrink-0">
+                      <span className="text-[11px] font-mono text-slate-600 dark:text-slate-400 font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-navy-900/90 border border-slate-200 dark:border-navy-800/80 flex-shrink-0">
                         {entry.timestamp?.split('T')[1]?.slice(0, 8) || '00:00:00'}
                       </span>
-                      <span className="px-2.5 py-1 rounded-md text-xs font-bold font-mono tracking-wide bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10 flex-shrink-0">
+                      <span className="px-2.5 py-1 rounded-md text-xs font-bold font-mono tracking-wide bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/40 shadow-xs flex-shrink-0">
                         {entry.agent}
                       </span>
                       <span
                         className={clsx(
-                          'inline-flex items-center justify-center px-3 py-1 rounded-md text-[11px] uppercase tracking-wider border transition-colors flex-shrink-0',
+                          'inline-flex items-center justify-center px-3 py-1 rounded-md text-[11px] uppercase tracking-wider transition-colors flex-shrink-0',
                           badgeClass
                         )}
                       >
@@ -1222,7 +1259,7 @@ export default function AnalysisPage() {
 
                     {entry.detail && (
                       <span
-                        className="text-slate-300 text-[11px] font-mono truncate max-w-sm md:max-w-md lg:max-w-lg text-right px-2.5 py-1 rounded bg-navy-900/80 border border-navy-800 hover:border-slate-600 transition-colors cursor-default"
+                        className="text-slate-700 dark:text-slate-300 text-[11px] font-mono truncate max-w-sm md:max-w-md lg:max-w-lg text-right px-2.5 py-1 rounded bg-white dark:bg-navy-900/80 border border-slate-200 dark:border-navy-800 hover:border-slate-400 dark:hover:border-slate-600 transition-colors cursor-default"
                         title={typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail, null, 2)}
                       >
                         {typeof entry.detail === 'string' ? entry.detail : JSON.stringify(entry.detail)}

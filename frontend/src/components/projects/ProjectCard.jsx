@@ -45,7 +45,7 @@ export default function ProjectCard({ project, onDelete }) {
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-white text-sm truncate group-hover:text-cyan-400 transition-colors">
+          <h3 className="font-semibold text-white text-sm truncate group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">
             {project.name}
           </h3>
           {project.description && (
@@ -54,8 +54,8 @@ export default function ProjectCard({ project, onDelete }) {
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(project._id) }}
-          className="p-1.5 rounded-md text-slate-600 hover:text-red-400 hover:bg-red-500/10
-                     opacity-0 group-hover:opacity-100 transition-all ml-2 flex-shrink-0"
+          className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-500/10
+                     opacity-0 group-hover:opacity-100 transition-all ml-2 flex-shrink-0 cursor-pointer"
           aria-label="Delete project"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -69,15 +69,15 @@ export default function ProjectCard({ project, onDelete }) {
           { label: 'Methods',   value: project.stats?.totalMethods   ?? '—' },
           { label: 'Endpoints', value: project.stats?.totalEndpoints ?? '—' },
         ].map(({ label, value }) => (
-          <div key={label} className="text-center">
+          <div key={label} className="text-center p-2 rounded-xl bg-slate-50 dark:bg-navy-950/60 border border-slate-200/60 dark:border-navy-800/60">
             <p className="text-base font-bold text-white">{value}</p>
-            <p className="text-xs text-slate-600">{label}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
           </div>
         ))}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-navy-700/50">
+      <div className="flex items-center justify-between pt-3 border-t border-slate-200/80 dark:border-navy-700/50">
         {/* Source type & Tech stack */}
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <span className="flex items-center gap-1">

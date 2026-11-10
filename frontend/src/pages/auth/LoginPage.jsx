@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -7,11 +7,21 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore, applyTheme } from '@/store/themeStore'
 import ReactBitsBackground from '@/components/ui/ReactBitsBackground'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoading } = useAuthStore()
+
+  // Authentication pages (Login & Register) must ALWAYS remain in dark theme
+  useEffect(() => {
+    applyTheme('dark')
+    return () => {
+      const savedTheme = useThemeStore.getState().theme || 'dark'
+      applyTheme(savedTheme)
+    }
+  }, [])
 
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
@@ -50,7 +60,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#030612] text-white flex flex-col lg:flex-row overflow-x-hidden relative selection:bg-cyan-500/30">
+    <div className="auth-dark-scope min-h-screen w-full bg-[#030612] text-white flex flex-col lg:flex-row overflow-x-hidden relative selection:bg-cyan-500/30">
 
       {/* ── VIBRANT REACTBITS SILK & BEAMS BACKDROP ── */}
       <ReactBitsBackground variant="cyan" />

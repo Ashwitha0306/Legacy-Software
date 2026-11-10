@@ -358,7 +358,7 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
         <div className={clsx(
           'flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3.5 border-b flex-shrink-0 transition-colors',
-          isDark ? 'border-white/8 bg-navy-900/50' : 'border-slate-200 bg-slate-50/90'
+          isDark ? 'border-white/8 bg-navy-900/50' : 'border-slate-200/90 bg-white/95'
         )}>
           <div className="flex items-center gap-3 min-w-0">
             <span className={clsx('flex-shrink-0 text-[11px] font-mono font-bold px-2.5 py-1 rounded-full border', accent.pill)}>
@@ -382,13 +382,13 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
               className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
                 showCode
                   ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-600 dark:text-cyan-300'
-                  : isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900')}>
+                  : isDark ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:text-cyan-600 hover:border-cyan-400 hover:shadow-sm')}>
               <Code2 className="w-3.5 h-3.5" /> Source
             </button>
 
             <button onClick={copyCode}
               className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
-                isDark ? 'border-white/10 bg-white/5 text-slate-400 hover:text-white' : 'border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900')}>
+                isDark ? 'border-white/10 bg-white/5 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:text-cyan-600 hover:border-cyan-400 hover:shadow-sm')}>
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy'}
             </button>
@@ -413,7 +413,7 @@ export default function MermaidViewer({ chartCode, svgCode, title, description, 
         )}
 
         {/* ── Diagram display ──────────────────────────────────────────────── */}
-        <div className={clsx('relative flex-1', !isDark && 'bg-slate-50/50')} style={{ minHeight: 500 }}>
+        <div className={clsx('relative flex-1', !isDark && 'bg-[#fafcff]')} style={{ minHeight: 500 }}>
 
           {renderError === 'legacy' ? (
             /* Outdated data */

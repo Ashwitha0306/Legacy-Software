@@ -3763,21 +3763,21 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
                     'shadow-lg',
                   ]
                   : [
-                    'bg-navy-900/60 border-navy-700/50',
-                    'hover:bg-navy-800/60 hover:border-navy-600',
+                    'card-hover bg-white dark:bg-navy-900/60 border-slate-200/90 dark:border-navy-700/50',
+                    'hover:border-cyan-400 dark:hover:border-cyan-500/60',
                   ]
               )}
             >
               {/* Top row: icon + badge */}
               <div className="flex items-start justify-between gap-1.5">
-                <div className={clsx('p-2 rounded-xl flex-shrink-0', isActive ? meta.iconBg : 'bg-navy-800 text-slate-500')}>
+                <div className={clsx('p-2 rounded-xl flex-shrink-0 transition-transform', isActive ? meta.iconBg : 'bg-slate-50 dark:bg-navy-800 text-slate-500 border border-slate-200/80 dark:border-transparent')}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className={clsx(
                   'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border flex-shrink-0',
                   isActive
                     ? `border-current text-${meta.accent}-400 bg-${meta.accent}-500/10`
-                    : 'border-navy-600 text-slate-500 bg-navy-800/40'
+                    : 'border-slate-200 dark:border-navy-600 text-slate-500 bg-white dark:bg-navy-800/40'
                 )}>
                   {meta.badge}
                 </span>
@@ -3787,7 +3787,7 @@ export default function UMLDiagramsView({ diagramsData = {}, parsedClasses = [],
               <div>
                 <p className={clsx(
                   'text-xs font-semibold leading-tight line-clamp-1',
-                  isActive ? 'text-white' : 'text-slate-300'
+                  isActive ? 'text-white' : 'text-slate-800 dark:text-slate-300'
                 )}>
                   {meta.label}
                 </p>

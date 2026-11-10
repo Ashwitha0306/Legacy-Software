@@ -132,7 +132,7 @@ export default function DashboardHome() {
     <div className="space-y-8 animate-fade-in pb-10">
 
       {/* ── 1. HEADER & QUICK ACTIONS ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-navy-900/80 p-6 rounded-2xl border border-navy-800 backdrop-blur-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 card-hover p-6 rounded-2xl border backdrop-blur-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
@@ -154,7 +154,7 @@ export default function DashboardHome() {
           <button
             onClick={() => fetchDashboardData(true)}
             disabled={refreshing}
-            className="px-3.5 py-2.5 rounded-xl bg-navy-800 border border-slate-700 text-slate-300 hover:text-white transition-all text-xs font-mono flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-navy-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-white transition-all text-xs font-mono flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-cyan-400' : ''}`} />
             <span>Sync Data</span>
@@ -162,7 +162,7 @@ export default function DashboardHome() {
 
           <button
             onClick={() => setIsUploadOpen(true)}
-            className="px-4 py-2.5 rounded-xl font-bold text-xs text-navy-950 bg-gradient-to-r from-cyan-400 via-teal-300 to-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-500 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all flex items-center gap-2 cursor-pointer shadow-md"
           >
             <Plus className="w-4 h-4" />
             Ingest Codebase
@@ -174,12 +174,12 @@ export default function DashboardHome() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
         {/* Projects Count */}
-        <div className="p-5 rounded-2xl bg-navy-900/80 border border-navy-800 hover:border-cyan-500/40 transition-colors">
+        <div className="card-hover p-5 rounded-2xl">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
               <FolderOpen className="w-5 h-5 text-cyan-400" />
             </div>
-            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">Active Workspace</span>
+            <span className="text-[10px] font-mono text-cyan-500 dark:text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">Active Workspace</span>
           </div>
           <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
             {loading ? '...' : projectCount}
@@ -191,12 +191,12 @@ export default function DashboardHome() {
         </div>
 
         {/* Total Extracted Code Nodes (Dynamic) */}
-        <div className="p-5 rounded-2xl bg-navy-900/80 border border-navy-800 hover:border-violet-500/40 transition-colors">
+        <div className="card-hover p-5 rounded-2xl">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
               <Code2 className="w-5 h-5 text-violet-400" />
             </div>
-            <span className="text-[10px] font-mono text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">AST Graph</span>
+            <span className="text-[10px] font-mono text-violet-500 dark:text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">AST Graph</span>
           </div>
           <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
             {loading ? '...' : totalNodes.toLocaleString()}
@@ -208,12 +208,12 @@ export default function DashboardHome() {
         </div>
 
         {/* SSKG Snapshots (Dynamic) */}
-        <div className="p-5 rounded-2xl bg-navy-900/80 border border-navy-800 hover:border-amber-500/40 transition-colors">
+        <div className="card-hover p-5 rounded-2xl">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
               <GitBranch className="w-5 h-5 text-amber-400" />
             </div>
-            <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Multi-Version</span>
+            <span className="text-[10px] font-mono text-amber-500 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Multi-Version</span>
           </div>
           <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
             {loading ? '...' : snapshotCount}
@@ -225,12 +225,12 @@ export default function DashboardHome() {
         </div>
 
         {/* Verification Guarantee (Dynamic) */}
-        <div className="p-5 rounded-2xl bg-navy-900/80 border border-navy-800 hover:border-emerald-500/40 transition-colors">
+        <div className="card-hover p-5 rounded-2xl">
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
             </div>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">RAV Engine</span>
+            <span className="text-[10px] font-mono text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">RAV Engine</span>
           </div>
           <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
             {loading ? '...' : (citationAccuracy > 0 ? `${citationAccuracy.toFixed(1)}%` : '0%')}
@@ -248,52 +248,52 @@ export default function DashboardHome() {
 
         <Link
           to="/dashboard/projects"
-          className="p-4 rounded-2xl bg-navy-900/70 border border-navy-800 hover:border-cyan-500/50 hover:bg-navy-800/80 transition-all group flex items-center gap-3.5"
+          className="card-hover p-4 rounded-2xl flex items-center gap-3.5 group"
         >
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
             <FolderOpen className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">Projects Hub</h4>
+            <h4 className="text-sm font-bold text-white group-hover:text-cyan-500 dark:group-hover:text-cyan-300 transition-colors">Projects Hub</h4>
             <p className="text-[11px] text-slate-400">View &amp; Ingest Codebases</p>
           </div>
         </Link>
 
         <Link
           to="/dashboard/projects"
-          className="p-4 rounded-2xl bg-navy-900/70 border border-navy-800 hover:border-violet-500/50 hover:bg-navy-800/80 transition-all group flex items-center gap-3.5"
+          className="card-hover p-4 rounded-2xl flex items-center gap-3.5 group"
         >
-          <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
             <GitBranch className="w-5 h-5 text-violet-400" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white group-hover:text-violet-300 transition-colors">Architecture Graph</h4>
+            <h4 className="text-sm font-bold text-white group-hover:text-violet-500 dark:group-hover:text-violet-300 transition-colors">Architecture Graph</h4>
             <p className="text-[11px] text-slate-400">Interactive SSKG Nodes</p>
           </div>
         </Link>
 
         <Link
           to="/dashboard/projects"
-          className="p-4 rounded-2xl bg-navy-900/70 border border-navy-800 hover:border-teal-500/50 hover:bg-navy-800/80 transition-all group flex items-center gap-3.5"
+          className="card-hover p-4 rounded-2xl flex items-center gap-3.5 group"
         >
-          <div className="w-10 h-10 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
             <BarChart3 className="w-5 h-5 text-teal-400" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white group-hover:text-teal-300 transition-colors">UML Diagrammer</h4>
+            <h4 className="text-sm font-bold text-white group-hover:text-teal-500 dark:group-hover:text-teal-300 transition-colors">UML Diagrammer</h4>
             <p className="text-[11px] text-slate-400">Class, Sequence &amp; Entity</p>
           </div>
         </Link>
 
         <Link
           to="/dashboard/projects"
-          className="p-4 rounded-2xl bg-navy-900/70 border border-navy-800 hover:border-emerald-500/50 hover:bg-navy-800/80 transition-all group flex items-center gap-3.5"
+          className="card-hover p-4 rounded-2xl flex items-center gap-3.5 group"
         >
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
             <MessageSquare className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">RAV Chatbot</h4>
+            <h4 className="text-sm font-bold text-white group-hover:text-emerald-500 dark:group-hover:text-emerald-300 transition-colors">RAV Chatbot</h4>
             <p className="text-[11px] text-slate-400">Grounded AI Queries</p>
           </div>
         </Link>
@@ -304,7 +304,7 @@ export default function DashboardHome() {
       <div className="grid lg:grid-cols-12 gap-6">
 
         {/* Recent Projects Table (7 Cols) */}
-        <div className="lg:col-span-7 p-6 rounded-2xl bg-navy-900/80 border border-navy-800 flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-7 card p-6 rounded-2xl flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -317,7 +317,7 @@ export default function DashboardHome() {
 
               <Link
                 to="/dashboard/projects"
-                className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline"
+                className="text-xs font-mono text-cyan-500 dark:text-cyan-400 hover:text-cyan-600 dark:hover:text-cyan-300 flex items-center gap-1 hover:underline font-semibold"
               >
                 View All ({projectCount}) <ArrowRight className="w-3.5 h-3.5" />
               </Link>
@@ -329,7 +329,7 @@ export default function DashboardHome() {
                 <p>Fetching real-time project metrics...</p>
               </div>
             ) : projectList.length === 0 ? (
-              <div className="py-10 px-4 text-center border border-dashed border-slate-800 rounded-2xl bg-navy-950/40 space-y-3">
+              <div className="py-10 px-4 text-center border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl bg-white/60 dark:bg-navy-950/40 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto text-cyan-400">
                   <Code2 className="w-6 h-6" />
                 </div>
@@ -341,7 +341,7 @@ export default function DashboardHome() {
                 </div>
                 <button
                   onClick={() => setIsUploadOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-navy-950 bg-cyan-400 hover:bg-cyan-300 transition-colors inline-flex items-center gap-1.5 cursor-pointer mt-1"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-teal-400 hover:shadow-lg transition-all inline-flex items-center gap-1.5 cursor-pointer mt-1"
                 >
                   <Plus className="w-4 h-4" /> Ingest First Project
                 </button>
@@ -355,14 +355,14 @@ export default function DashboardHome() {
                   return (
                     <div
                       key={p.id || p._id || idx}
-                      className="p-4 rounded-xl bg-navy-950/70 border border-navy-800/80 hover:border-slate-700 transition-all flex items-center justify-between gap-4 group"
+                      className="p-4 rounded-xl card-hover flex items-center justify-between gap-4 group"
                     >
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-white truncate group-hover:text-cyan-400 transition-colors">
+                          <span className="font-bold text-sm text-white truncate group-hover:text-cyan-500 dark:group-hover:text-cyan-400 transition-colors">
                             {p.name || 'Untitled Project'}
                           </span>
-                          <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/20 uppercase">
+                          <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/20 uppercase font-semibold">
                             {p.language || 'Java/Spring'}
                           </span>
                         </div>
@@ -371,13 +371,13 @@ export default function DashboardHome() {
                           <span>•</span>
                           <span>{edgeCnt.toLocaleString()} edges</span>
                           <span>•</span>
-                          <span className="capitalize text-emerald-400">{p.status || 'completed'}</span>
+                          <span className="capitalize text-emerald-500 dark:text-emerald-400 font-semibold">{p.status || 'completed'}</span>
                         </div>
                       </div>
 
                       <Link
                         to={`/dashboard/analysis/${p.id || p._id}`}
-                        className="px-3 py-1.5 rounded-lg bg-navy-800 hover:bg-cyan-500/20 border border-slate-700 hover:border-cyan-500/40 text-xs font-bold text-slate-200 hover:text-cyan-300 transition-all flex items-center gap-1 flex-shrink-0"
+                        className="px-3 py-1.5 rounded-lg bg-white dark:bg-navy-800 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 border border-slate-200 dark:border-slate-700 hover:border-cyan-400 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-300 transition-all flex items-center gap-1 flex-shrink-0 shadow-sm"
                       >
                         Open Workspace <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
@@ -388,16 +388,16 @@ export default function DashboardHome() {
             )}
           </div>
 
-          <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
             <span>Last Synced: {lastRefreshed.toLocaleTimeString()}</span>
-            <span className="text-emerald-400 flex items-center gap-1">
+            <span className="text-emerald-500 dark:text-emerald-400 flex items-center gap-1 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" /> Telemetry Connected
             </span>
           </div>
         </div>
 
         {/* 11-Agent Multi-Agent Pipeline Status Monitor (5 Cols) */}
-        <div className="lg:col-span-5 p-6 rounded-2xl bg-navy-900/80 border border-navy-800 flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-5 card p-6 rounded-2xl flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -408,7 +408,7 @@ export default function DashboardHome() {
                 <p className="text-xs text-slate-400 mt-0.5">Autonomous pipeline latency &amp; status</p>
               </div>
 
-              <span className="px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-[10px] font-mono font-medium">
+              <span className="px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-500 dark:text-violet-300 text-[10px] font-mono font-medium">
                 Realtime Telemetry
               </span>
             </div>
@@ -421,16 +421,16 @@ export default function DashboardHome() {
                 return (
                   <div
                     key={agent.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-navy-950/60 border border-navy-800/80 text-xs hover:border-slate-700 transition-colors"
+                    className="flex items-center justify-between p-2.5 rounded-xl card-hover text-xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-                      <span className="font-medium text-slate-200 truncate">{agent.name}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{agent.name}</span>
                     </div>
 
                     <div className="flex items-center gap-2 font-mono text-[10px] flex-shrink-0">
                       <span className="text-slate-500">{agentLatency}</span>
-                      <span className="text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                      <span className="text-cyan-500 dark:text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 font-semibold">
                         {agent.id}
                       </span>
                     </div>
@@ -440,9 +440,9 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
-            <span>Orchestrator: <strong className="text-slate-200 font-mono">Isolated Queue</strong></span>
-            <span className="text-emerald-400 font-mono font-semibold">{serverStatus}</span>
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
+            <span>Orchestrator: <strong className="text-slate-700 dark:text-slate-200 font-mono">Isolated Queue</strong></span>
+            <span className="text-emerald-500 dark:text-emerald-400 font-mono font-semibold">{serverStatus}</span>
           </div>
         </div>
 

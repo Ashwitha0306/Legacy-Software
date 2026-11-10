@@ -112,10 +112,10 @@ export default function ProjectsPage() {
               <button
                 key={value}
                 onClick={() => setStatusFilter(value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                   statusFilter === value
-                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-navy-800'
+                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/40 font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-white dark:hover:bg-blue-950/60 border border-transparent hover:border-slate-200 dark:hover:border-cyan-500/30'
                 }`}
               >
                 {label}

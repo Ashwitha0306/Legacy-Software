@@ -33,10 +33,10 @@ export default function ThemeToggle({
       <button
         onClick={handleToggle}
         className={clsx(
-          'inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all duration-300 cursor-pointer shadow-sm',
+          'inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all duration-300 cursor-pointer shadow-xs backdrop-blur-md',
           isDark
             ? 'bg-navy-950/80 border-slate-700/80 text-amber-300 hover:text-amber-200 hover:border-amber-400/40 hover:bg-navy-900'
-            : 'bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:border-slate-400 hover:bg-slate-50',
+            : 'bg-white/80 border-emerald-200/80 text-emerald-950 hover:text-emerald-800 hover:border-emerald-300 hover:bg-white/95 shadow-xs',
           className
         )}
         title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
@@ -62,9 +62,9 @@ export default function ThemeToggle({
               animate={{ rotate: 0, scale: 1, opacity: 1 }}
               exit={{ rotate: -90, scale: 0.7, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="flex items-center gap-1.5 text-cyan-600"
+              className="flex items-center gap-1.5 text-emerald-700 font-bold"
             >
-              <Moon className="w-4 h-4" />
+              <Moon className="w-4 h-4 text-emerald-600" />
               <span>Dark Mode</span>
             </motion.div>
           )}
@@ -78,10 +78,10 @@ export default function ThemeToggle({
     <button
       onClick={handleToggle}
       className={clsx(
-        'w-8 h-8 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-sm relative overflow-hidden flex-shrink-0',
+        'w-8 h-8 rounded-xl border transition-all duration-300 flex items-center justify-center cursor-pointer shadow-xs relative overflow-hidden flex-shrink-0 backdrop-blur-md',
         isDark
           ? 'bg-navy-950/90 border-slate-700/80 text-amber-400 hover:border-amber-400/50 hover:bg-amber-500/10 hover:text-amber-300'
-          : 'bg-white border-slate-200 text-slate-600 hover:border-cyan-400 hover:text-cyan-600 hover:bg-cyan-50/60 shadow-slate-200/50',
+          : 'bg-white/80 border-emerald-200/70 text-slate-700 hover:border-emerald-400 hover:text-emerald-700 hover:bg-white/95',
         className
       )}
       title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}

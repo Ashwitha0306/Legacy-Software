@@ -58,47 +58,47 @@ export default function SettingsPage() {
       </div>
 
       {/* ── SECTION 1: DEVELOPER PROFILE & WORKSPACE PERMISSIONS ── */}
-      <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
-        <div className="flex items-center justify-between border-b border-navy-800 pb-4">
+      <section className="card p-6 sm:p-8 rounded-2xl space-y-6 backdrop-blur-xl w-full">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-navy-800 pb-4">
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
               <User className="w-5 h-5 text-cyan-400" /> Developer Profile &amp; Workspace Role
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">Workspace identity, role permissions, and active telemetry</p>
           </div>
-          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">Active Session</span>
+          <span className="text-[10px] font-mono text-cyan-500 dark:text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20 font-semibold">Active Session</span>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl bg-navy-950/80 border border-navy-800 space-y-1">
+          <div className="card-hover p-4 rounded-xl space-y-1">
             <span className="text-xs text-slate-500 font-mono">Full Name</span>
             <p className="text-sm font-bold text-white">{user?.name || 'Lead Researcher'}</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-navy-950/80 border border-navy-800 space-y-1">
+          <div className="card-hover p-4 rounded-xl space-y-1">
             <span className="text-xs text-slate-500 font-mono">Email Address</span>
-            <p className="text-sm font-mono text-cyan-300 truncate">{user?.email || 'researcher@legacyintel.ai'}</p>
+            <p className="text-sm font-mono text-cyan-600 dark:text-cyan-300 truncate font-semibold">{user?.email || 'researcher@legacyintel.ai'}</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-navy-950/80 border border-navy-800 space-y-1">
+          <div className="card-hover p-4 rounded-xl space-y-1">
             <span className="text-xs text-slate-500 font-mono">Platform Access Tier</span>
             <div className="pt-0.5">
-              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-xs font-mono font-bold">
+              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 text-xs font-mono font-bold">
                 {user?.role || 'Lead Architect'}
               </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-navy-950/80 border border-navy-800 space-y-1">
+          <div className="card-hover p-4 rounded-xl space-y-1">
             <span className="text-xs text-slate-500 font-mono">Active Workspace</span>
-            <p className="text-sm font-semibold text-slate-200">Grounded RAV Production</p>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Grounded RAV Production</p>
           </div>
         </div>
       </section>
 
       {/* ── SECTION 2: PIPELINE BENCHMARKS & CONFIGURATION DEFAULTS ── */}
-      <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
-        <div className="flex items-center justify-between border-b border-navy-800 pb-4">
+      <section className="card p-6 sm:p-8 rounded-2xl space-y-6 backdrop-blur-xl w-full">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-navy-800 pb-4">
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
               <FlaskConical className="w-5 h-5 text-amber-400" /> Pipeline Execution Mode &amp; Benchmark Defaults
@@ -107,7 +107,7 @@ export default function SettingsPage() {
               Select default execution mode for formal comparative multi-agent benchmarks
             </p>
           </div>
-          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">Benchmarking</span>
+          <span className="text-[10px] font-mono text-amber-500 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-semibold">Benchmarking</span>
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4 pt-2">
@@ -120,25 +120,25 @@ export default function SettingsPage() {
               key={mode}
               onClick={() => setDefaultAblation(mode)}
               className={clsx(
-                'p-5 rounded-xl border text-left cursor-pointer transition-all',
+                'card-hover p-5 rounded-xl border text-left cursor-pointer transition-all',
                 defaultAblation === mode
-                  ? 'border-cyan-400 bg-cyan-500/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.2)]'
-                  : 'border-navy-800 bg-navy-950/60 text-slate-400 hover:border-slate-700'
+                  ? 'border-cyan-500 dark:border-cyan-400 bg-cyan-500/10 text-cyan-600 dark:text-white shadow-[0_0_20px_rgba(6,182,212,0.2)] font-bold'
+                  : 'border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-950/60 text-slate-600 dark:text-slate-400'
               )}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-sm">{name}</span>
-                {defaultAblation === mode && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+                <span className="font-bold text-sm text-slate-900 dark:text-white">{name}</span>
+                {defaultAblation === mode && <CheckCircle2 className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />}
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">{desc}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* ── SECTION 3: GLOBAL APPEARANCE & THEME (DARK / LIGHT) ── */}
-      <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
-        <div className="flex items-center justify-between border-b border-navy-800 pb-4">
+      <section className="card p-6 sm:p-8 rounded-2xl space-y-6 backdrop-blur-xl w-full">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-navy-800 pb-4">
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
               <Sun className="w-5 h-5 text-amber-400" /> Global Appearance &amp; Interface Theme
@@ -147,7 +147,7 @@ export default function SettingsPage() {
               Choose between Deep Space Dark Theme and Architectural Light Theme
             </p>
           </div>
-          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20 capitalize">
+          <span className="text-[10px] font-mono text-cyan-500 dark:text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20 capitalize font-semibold">
             {theme} Mode Active
           </span>
         </div>
@@ -160,21 +160,21 @@ export default function SettingsPage() {
               toast.success('Dark Theme Enabled')
             }}
             className={clsx(
-              'p-5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-4',
+              'card-hover p-5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-4',
               theme === 'dark'
-                ? 'border-cyan-400 bg-cyan-500/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.2)]'
-                : 'border-navy-800 bg-navy-950/60 text-slate-400 hover:border-slate-700'
+                ? 'border-cyan-500 dark:border-cyan-400 bg-cyan-500/10 text-cyan-600 dark:text-white shadow-[0_0_20px_rgba(6,182,212,0.2)] font-bold'
+                : 'border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-950/60 text-slate-600 dark:text-slate-400'
             )}
           >
-            <div className="p-3 rounded-xl bg-navy-950 border border-slate-800 text-cyan-400 flex-shrink-0">
+            <div className="p-3 rounded-xl bg-slate-900 dark:bg-navy-950 border border-slate-800 text-cyan-400 flex-shrink-0 shadow-sm">
               <Moon className="w-6 h-6" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-sm text-white">Dark Theme</span>
-                {theme === 'dark' && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+                <span className="font-bold text-sm text-slate-900 dark:text-white">Dark Theme</span>
+                {theme === 'dark' && <CheckCircle2 className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />}
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 Deep space navy background with glowing cyan and violet telemetry accents. Ideal for low-light environments.
               </p>
             </div>
@@ -187,22 +187,22 @@ export default function SettingsPage() {
               toast.success('Light Theme Enabled')
             }}
             className={clsx(
-              'p-5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-4',
+              'card-hover p-5 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-4',
               theme === 'light'
-                ? 'border-cyan-400 bg-cyan-500/10 text-white shadow-[0_0_20px_rgba(6,182,212,0.2)]'
-                : 'border-navy-800 bg-navy-950/60 text-slate-400 hover:border-slate-700'
+                ? 'border-cyan-500 dark:border-cyan-400 bg-cyan-500/10 text-cyan-600 dark:text-white shadow-[0_0_20px_rgba(6,182,212,0.2)] font-bold'
+                : 'border-slate-200 dark:border-navy-800 bg-white dark:bg-navy-950/60 text-slate-600 dark:text-slate-400'
             )}
           >
-            <div className="p-3 rounded-xl bg-white border border-slate-300 text-amber-500 flex-shrink-0 shadow-sm">
+            <div className="p-3 rounded-xl bg-white border border-slate-200 text-amber-500 flex-shrink-0 shadow-sm">
               <Sun className="w-6 h-6" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-sm text-slate-900 dark:text-white">Light Theme</span>
-                {theme === 'light' && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+                {theme === 'light' && <CheckCircle2 className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Clean architectural slate palette with crisp typography, soft glass borders, and high daylight contrast.
+                Clean architectural white porcelain palette with crisp typography, luminous hover elevation, and zero dull grey tones.
               </p>
             </div>
           </div>
@@ -210,7 +210,7 @@ export default function SettingsPage() {
       </section>
 
       {/* ── SECTION 4: SYSTEM TELEMETRY & STORAGE CACHE ── */}
-      <section className="p-6 sm:p-8 rounded-2xl bg-navy-900/80 border border-navy-800 space-y-6 backdrop-blur-xl w-full">
+      <section className="card p-6 sm:p-8 rounded-2xl space-y-6 backdrop-blur-xl w-full">
         <div className="flex items-center justify-between border-b border-navy-800 pb-4">
           <div>
             <h2 className="text-xl font-extrabold text-white flex items-center gap-2.5">
@@ -222,7 +222,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="p-5 rounded-xl bg-navy-950/80 border border-navy-800 flex items-center justify-between gap-4">
+          <div className="card-hover p-5 rounded-xl flex items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-white">Reset Local Credentials Cache</h4>
               <p className="text-xs text-slate-400 mt-0.5">Clears saved local tokens and temporary session preferences.</p>
@@ -231,13 +231,13 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleClearCache}
-              className="px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+              className="px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-500 dark:text-red-400 hover:bg-red-500/25 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0"
             >
               <Trash2 className="w-4 h-4" /> Clear Cache
             </button>
           </div>
 
-          <div className="p-5 rounded-xl bg-navy-950/80 border border-navy-800 flex items-center justify-between gap-4">
+          <div className="card-hover p-5 rounded-xl flex items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-white">Export Diagnostic Telemetry</h4>
               <p className="text-xs text-slate-400 mt-0.5">Download diagnostic pipeline log trace for research evaluation.</p>
@@ -246,7 +246,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => toast.success('Diagnostic log bundle downloaded')}
-              className="px-4 py-2.5 rounded-xl bg-navy-800 border border-slate-700 hover:border-cyan-500/40 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+              className="px-4 py-2.5 rounded-xl bg-white dark:bg-navy-800 border border-slate-200 dark:border-slate-700 hover:border-cyan-400 text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0 shadow-xs"
             >
               <Download className="w-4 h-4 text-cyan-400" /> Export Logs
             </button>
@@ -255,7 +255,7 @@ export default function SettingsPage() {
       </section>
 
       {/* ── FOOTER SAVE BAR ── */}
-      <div className="flex items-center justify-between p-6 rounded-2xl bg-navy-900/90 border border-navy-800 backdrop-blur-xl">
+      <div className="flex items-center justify-between p-6 rounded-2xl card backdrop-blur-xl">
         <span className="text-xs text-slate-400 font-mono">
           All settings persist locally across browser sessions.
         </span>

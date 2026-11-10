@@ -343,25 +343,25 @@ export default function EvaluationVisualizations({
   return (
     <div className="space-y-6">
       {/* ── Control Header / Visualization Mode Switcher ────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-navy-900/90 border border-navy-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl card-hover">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+          <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-500 dark:text-cyan-400">
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              Empirical Evaluation & Performance Visualizations
+              Empirical Evaluation &amp; Performance Visualizations
               <span className="badge-cyan text-[10px] font-mono">Agent 11 Active</span>
             </h4>
             <p className="text-xs text-slate-400">
               Interactive multi-dimensional metrics, multi-agent pipeline benchmarks, and claim verification telemetry for{' '}
-              <span className="text-cyan-300 font-semibold">{projectName}</span>.
+              <span className="text-cyan-600 dark:text-cyan-300 font-semibold">{projectName}</span>.
             </p>
           </div>
         </div>
 
         {/* View Switcher Pills */}
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-navy-950 border border-navy-800/80 self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-white dark:bg-navy-950 border border-slate-200 dark:border-navy-800/80 self-start sm:self-auto shadow-xs">
           {[
             { id: 'all', label: 'All Visualizations', icon: Layers },
             { id: 'benchmark', label: 'Pipeline Benchmark', icon: BarChart3 },
@@ -375,10 +375,10 @@ export default function EvaluationVisualizations({
                 key={view.id}
                 onClick={() => setActiveView(view.id)}
                 className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer',
                   isSelected
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10 font-bold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-navy-900/60'
+                    ? 'bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-navy-900/60'
                 )}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -389,45 +389,45 @@ export default function EvaluationVisualizations({
         </div>
       </div>
 
-      {/* ── Key Performance Highlights Row ───────────────────────────────── */}
+      {/* ── Key Performance Highlights Row (Frosted Gradient Cards matching user reference) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-950/40 to-navy-900 border border-emerald-500/30 flex items-center justify-between">
+        <div className="card-hover p-4 rounded-xl border-2 border-emerald-400/50 bg-gradient-to-r from-emerald-100/90 via-emerald-50/70 to-teal-50/40 dark:from-emerald-950/40 dark:via-navy-900/90 dark:to-teal-950/30 flex items-center justify-between shadow-xs">
           <div className="space-y-1">
-            <span className="text-xs font-mono text-emerald-400 font-semibold flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Verification Fidelity
+            <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" /> Verification Fidelity
             </span>
-            <div className="text-2xl font-black font-mono text-white">{verificationFidelity}%</div>
-            <p className="text-[11px] text-slate-400">Claims grounded with source file citations</p>
+            <div className="text-3xl font-black font-mono text-slate-950 dark:text-white mt-1">{verificationFidelity}%</div>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Claims grounded with source file citations</p>
           </div>
-          <div className="p-3 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-xs font-bold">
+          <div className="px-3.5 py-1.5 rounded-full bg-emerald-200/80 dark:bg-emerald-500/20 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/40 font-mono text-xs font-black shadow-xs">
             {pieData.find(d => d.name === 'Verified Claims')?.value || 0} / {verifiedStatements.length || 25}
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-950/40 to-navy-900 border border-cyan-500/30 flex items-center justify-between">
+        <div className="card-hover p-4 rounded-xl border-2 border-cyan-400/50 bg-gradient-to-r from-cyan-100/90 via-sky-50/70 to-blue-50/40 dark:from-cyan-950/40 dark:via-navy-900/90 dark:to-sky-950/30 flex items-center justify-between shadow-xs">
           <div className="space-y-1">
-            <span className="text-xs font-mono text-cyan-400 font-semibold flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> Hallucination Suppression
+            <span className="text-xs font-mono text-cyan-700 dark:text-cyan-400 font-bold flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-cyan-500" /> Hallucination Suppression
             </span>
-            <div className="text-2xl font-black font-mono text-white">{suppressionFactor}</div>
-            <p className="text-[11px] text-slate-400">Lower hallucination than ungrounded LLM</p>
+            <div className="text-3xl font-black font-mono text-slate-950 dark:text-white mt-1">{suppressionFactor}</div>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Lower hallucination than ungrounded LLM</p>
           </div>
-          <div className="p-3 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-mono text-xs font-bold">
+          <div className="px-3.5 py-1.5 rounded-full bg-cyan-200/80 dark:bg-cyan-500/20 text-cyan-900 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/40 font-mono text-xs font-black shadow-xs">
             4.0% vs 43.6%
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-gradient-to-br from-violet-950/40 to-navy-900 border border-violet-500/30 flex items-center justify-between">
+        <div className="card-hover p-4 rounded-xl border-2 border-violet-400/50 bg-gradient-to-r from-violet-100/90 via-purple-50/70 to-indigo-50/40 dark:from-violet-950/40 dark:via-navy-900/90 dark:to-indigo-950/30 flex items-center justify-between shadow-xs">
           <div className="space-y-1">
-            <span className="text-xs font-mono text-violet-400 font-semibold flex items-center gap-1">
-              <FileCheck className="w-3.5 h-3.5" /> Time Saved by RAV
+            <span className="text-xs font-mono text-violet-700 dark:text-violet-400 font-bold flex items-center gap-1.5">
+              <FileCheck className="w-4 h-4 text-violet-500" /> Time Saved by RAV
             </span>
-            <div className="text-2xl font-black font-mono text-white">
+            <div className="text-3xl font-black font-mono text-slate-950 dark:text-white mt-1">
               {evalMetrics.time_saved_minutes || (verifiedStatements.length ? (verifiedStatements.length * 15).toFixed(0) : '375')}m
             </div>
-            <p className="text-[11px] text-slate-400">Automated AST verification vs manual audit</p>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Automated AST verification vs manual audit</p>
           </div>
-          <div className="p-3 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-mono text-xs font-bold">
+          <div className="px-3.5 py-1.5 rounded-full bg-violet-200/80 dark:bg-violet-500/20 text-violet-900 dark:text-violet-300 border border-violet-300 dark:border-violet-500/40 font-mono text-xs font-black shadow-xs">
             ~{(parseFloat(evalMetrics.time_saved_minutes || 375) / 60).toFixed(1)} hrs
           </div>
         </div>
@@ -607,17 +607,17 @@ export default function EvaluationVisualizations({
             {/* Custom Pie Legend with Counts & Percentages */}
             <div className="space-y-2 pt-1 border-t border-navy-800/60 font-mono text-xs">
               {pieData.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-1.5 rounded-lg bg-navy-950/60 border border-navy-800/60">
+                <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white/95 dark:bg-navy-950/60 border border-emerald-100 dark:border-navy-800/60 shadow-xs hover:border-emerald-300 transition-colors">
                   <div className="flex items-center gap-2">
                     <span
                       className="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"
                       style={{ backgroundColor: item.fill }}
                     />
-                    <span className="text-slate-300 font-sans text-xs">{item.name}</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-sans text-xs font-semibold">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-bold">{item.value}</span>
-                    <span className="text-slate-500 text-[11px]">({item.percentage}%)</span>
+                    <span className="text-slate-900 dark:text-white font-black">{item.value}</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold">({item.percentage}%)</span>
                   </div>
                 </div>
               ))}
@@ -720,14 +720,14 @@ export default function EvaluationVisualizations({
             {/* Comparative Progression Bars */}
             <div className="space-y-4 py-2">
               {hallucinationCompData.map((item, idx) => (
-                <div key={idx} className="p-3.5 rounded-xl bg-navy-950/70 border border-navy-800/80 space-y-2">
+                <div key={idx} className="p-3.5 rounded-xl card-hover bg-white/95 dark:bg-navy-950/70 border border-emerald-100 dark:border-navy-800/80 space-y-2 shadow-xs">
                   <div className="flex items-center justify-between font-mono text-xs">
-                    <span className={clsx('font-bold', item.condition.includes('Proposed') ? 'text-cyan-400' : 'text-slate-300')}>
+                    <span className={clsx('font-bold', item.condition.includes('Proposed') ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-800 dark:text-slate-300')}>
                       {item.condition}
                     </span>
                     <div className="flex items-center gap-3 text-[11px]">
-                      <span className="text-emerald-400 font-semibold">Citations: {item.citations}%</span>
-                      <span className={clsx('font-semibold', item.hallucination <= 5 ? 'text-emerald-400' : item.hallucination <= 20 ? 'text-amber-400' : 'text-red-400')}>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">Citations: {item.citations}%</span>
+                      <span className={clsx('font-bold', item.hallucination <= 5 ? 'text-emerald-600 dark:text-emerald-400' : item.hallucination <= 20 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500 dark:text-red-400')}>
                         Hallucination: {item.hallucination}%
                       </span>
                     </div>
@@ -737,18 +737,18 @@ export default function EvaluationVisualizations({
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
                       <span className="w-20 flex-shrink-0">Citation Acc:</span>
-                      <div className="flex-1 h-2 rounded-full bg-navy-900 overflow-hidden">
+                      <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-navy-900 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-500"
                           style={{ width: `${Math.max(2, item.citations)}%` }}
                         />
                       </div>
-                      <span className="w-10 text-right text-slate-300 font-bold">{item.citations}%</span>
+                      <span className="w-10 text-right text-slate-700 dark:text-slate-300 font-bold">{item.citations}%</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
                       <span className="w-20 flex-shrink-0">Hallucination:</span>
-                      <div className="flex-1 h-2 rounded-full bg-navy-900 overflow-hidden">
+                      <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-navy-900 overflow-hidden">
                         <div
                           className={clsx(
                             'h-full rounded-full transition-all duration-500',
